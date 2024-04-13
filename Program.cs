@@ -7,62 +7,72 @@ using Lunaris2.Notification;
 using Lunaris2.SlashCommand;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
-namespace Lunaris2;
-
-public class Program
+namespace Lunaris2
 {
-    private DiscordSocketClient? _client;
-    private CommandService? _commands;
-    private IServiceProvider? _services;
-    private IConfiguration? _config;
-
-    private static void Main(string[] args) => new Program()
-        .RunBotAsync()
-        .GetAwaiter()
-        .GetResult();
-
-    private async Task RunBotAsync()
+    public class Program
     {
-        var config = new DiscordSocketConfig
+        public static void Main(string[] args)
         {
-            GatewayIntents = GatewayIntents.All
-        };
-        
-        _client = new DiscordSocketClient(config);
-        _client.Ready += Client_Ready;
-        _commands = new CommandService();
-        _services = new ServiceCollection()
-            .AddSingleton(_client)
-            .AddSingleton(_commands)
-            .AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()))
-            .AddSingleton<DiscordEventListener>()
-            .AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()))
-            .BuildServiceProvider();
-        
-        _client.Log += Log;
-        _config = new ConfigurationBuilder()
-            .SetBasePath(AppContext.BaseDirectory)
-            .AddJsonFile("appsettings.json")
-            .Build();
-        
-        await _client.LoginAsync(TokenType.Bot, _config["Token"]);
-        await _client.StartAsync();
+            CreateHostBuilder(args).Build().Run();
+        }
 
-        var listener = _services.GetRequiredService<DiscordEventListener>();
-        await listener.StartAsync();
-        
-        await Task.Delay(Timeout.Infinite);
-    }
+        private static IHostBuilder CreateHostBuilder(string[] args) =>
+            Host.CreateDefaultBuilder(args)
+                .ConfigureServices((_, services) =>
+                {
+                    var config = new DiscordSocketConfig
+                    {
+                        GatewayIntents = GatewayIntents.All
+                    };
 
-    private async Task Client_Ready()
-    {
-        _client.RegisterCommands();
-    }
-    
-    private Task Log(LogMessage arg)
-    {
-        Console.WriteLine(arg);
-        return Task.CompletedTask;
+                    var client = new DiscordSocketClient(config);
+                    var commands = new CommandService();
+                    var configuration = new ConfigurationBuilder()
+                        .SetBasePath(AppContext.BaseDirectory)
+                        .AddJsonFile("appsettings.json")
+                        .Build();
+                    
+                    services.AddSingleton(client)
+                        .AddSingleton(commands)
+                        .AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()))
+                        .AddSingleton<DiscordEventListener>()
+                        .AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()));
+
+                    client.Ready += () => Client_Ready(client);
+                    client.Log += Log;
+                    
+                    client
+                        .LoginAsync(TokenType.Bot, configuration["Token"])
+                        .GetAwaiter()
+                        .GetResult();
+                    
+                    client
+                        .StartAsync()
+                        .GetAwaiter()
+                        .GetResult();
+
+                    var listener = services
+                        .BuildServiceProvider()
+                        .GetRequiredService<DiscordEventListener>();
+                    
+                    listener
+                        .StartAsync()
+                        .GetAwaiter()
+                        .GetResult();
+                });
+
+        private static Task Client_Ready(DiscordSocketClient client)
+        {
+            client.RegisterCommands();
+            return Task.CompletedTask;
+        }
+        
+        private static Task Log(LogMessage arg)
+        {
+            Console.WriteLine(arg);
+            return Task.CompletedTask;
+        }
     }
 }
