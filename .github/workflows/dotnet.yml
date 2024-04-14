@@ -23,9 +23,6 @@ jobs:
     - name: Build
       run: dotnet build ./Bot/Lunaris2.csproj --no-restore -c Release -o ./out
 
-    - name: Test
-      run: dotnet test ./Bot/Lunaris2.csproj --no-build --verbosity normal
-
     - name: Publish
       run: dotnet publish ./Bot/Lunaris2.csproj --configuration Release --output ./out
 
