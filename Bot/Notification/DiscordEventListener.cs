@@ -27,7 +27,8 @@ public class DiscordEventListener(DiscordSocketClient client, IServiceScopeFacto
 
     private async Task OnMessageReceivedAsync(SocketMessage arg)
     {
-        await Mediator.Publish(new MessageReceivedNotification(arg), _cancellationToken);
+        _ = Task.Run(() => Mediator.Publish(new MessageReceivedNotification(arg), _cancellationToken), _cancellationToken);
+        return Task.CompletedTask;
     }
     
     private async Task OnSlashCommandRecievedAsync(SocketSlashCommand arg)

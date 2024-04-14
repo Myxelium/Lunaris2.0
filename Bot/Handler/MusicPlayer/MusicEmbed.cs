@@ -1,7 +1,6 @@
 using Discord;
 using Discord.WebSocket;
-using Victoria;
-using Victoria.Player;
+using Lavalink4NET.Tracks;
 
 namespace Lunaris2.Handler.MusicPlayer;
 
@@ -12,33 +11,30 @@ public class MusicEmbed
         string title, 
         string length, 
         string artist, 
-        string queuedBy, 
-        string? nextInQueue)
+        string queuedBy)
     {
         return new EmbedBuilder()
             .WithAuthor("Lunaris", "https://media.tenor.com/GqAwMt01UXgAAAAi/cd.gif")
             .WithTitle(title)
-            .WithDescription($"Length: {length}\nArtist: {artist}\nQueued by: {queuedBy}\nNext in queue: {nextInQueue}")
+            .WithDescription($"Length: {length}\nArtist: {artist}\nQueued by: {queuedBy}")
             .WithColor(Color.Magenta)
             .WithThumbnailUrl(imageUrl)
             .Build();
     }
     
     public async Task NowPlayingEmbed(
-        LavaPlayer<LavaTrack> player, 
+        LavalinkTrack player, 
         SocketSlashCommand context, 
         DiscordSocketClient client)
     {
-        var artwork = await player.Track.FetchArtworkAsync();
-        var getNextTrack = player.Vueue.Count > 1 ? player.Vueue.ToArray()[1].Title : "No songs in queue.";
+        var artwork = player.ArtworkUri;
         var embed = SendMusicEmbed(
-            artwork, 
-            player.Track.Title, 
-            player.Track.Duration.ToString(), 
-            player.Track.Author, 
-            context.User.Username, 
-            getNextTrack);
-
+            artwork.ToString(), 
+            player.Title, 
+            player.Duration.ToString(), 
+            player.Author, 
+            context.User.Username);
+        
         await context.SendMessageAsync(embed, client);
     }
 }

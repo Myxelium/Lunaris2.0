@@ -1,48 +1,34 @@
 using Discord.WebSocket;
+using Lavalink4NET;
 using MediatR;
-using Victoria.Node;
-using Victoria.Player;
 
 namespace Lunaris2.Handler.MusicPlayer.SkipCommand;
 
 public record SkipCommand(SocketSlashCommand Message) : IRequest;
 
-public class SkipHandler : IRequestHandler<SkipCommand>
+public class SkipHandler(DiscordSocketClient client, IAudioService audioService) : IRequestHandler<SkipCommand>
 {
-    private readonly LavaNode _lavaNode;
-    private readonly DiscordSocketClient _client;
-    private readonly MusicEmbed _musicEmbed;
-
-    public SkipHandler(LavaNode lavaNode, DiscordSocketClient client, MusicEmbed musicEmbed)
+    public async Task Handle(SkipCommand command, CancellationToken cancellationToken)
     {
-        _lavaNode = lavaNode;
-        _client = client;
-        _musicEmbed = musicEmbed;
-    }
+        var context = command.Message;
+        var player = await audioService.GetPlayerAsync(client, context, connectToVoiceChannel: true);
 
-    public async Task Handle(SkipCommand message, CancellationToken cancellationToken)
-    {
-        var context = message.Message;
-        
-        await _lavaNode.EnsureConnected();
-        
-        if (!_lavaNode.TryGetPlayer(context.GetGuild(_client), out var player)) {
-            await context.RespondAsync("I'm not connected to a voice channel.");
+        if (player is null)
+            return;
+
+        if (player.CurrentItem is null)
+        {
+            await context.SendMessageAsync("Nothing playing!", client).ConfigureAwait(false);
             return;
         }
 
-        if (player.PlayerState != PlayerState.Playing) {
-            await context.RespondAsync("Woaaah there, I can't skip when nothing is playing.");
-            return;
-        }
-        
-        try {
-            await player.SkipAsync();
-            await _musicEmbed.NowPlayingEmbed(player, context, _client);
-        }
-        catch (Exception exception) {
-            await context.RespondAsync("There is not more tracks to skip.");
-            Console.WriteLine(exception);
-        }
+        await player.SkipAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+
+        var track = player.CurrentItem;
+
+        if (track is not null)
+            await context.SendMessageAsync($"Skipped. Now playing: {track.Track!.Title}", client).ConfigureAwait(false);
+        else
+            await context.SendMessageAsync("Skipped. Stopped playing because the queue is now empty.", client).ConfigureAwait(false);
     }
 }
