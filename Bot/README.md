@@ -13,4 +13,8 @@ flowchart TD
     C -->|GoodbyeCommand| G[GoodbyeHandler]
 ```
 
-Program registers an event listener ```DiscordEventListener``` which publish a message ```C# await Mediator.Publish(new MessageReceivedNotification(arg), _cancellationToken);```
+Program registers an event listener ```DiscordEventListener``` which publish a message :
+
+```c#
+await Mediator.Publish(new MessageReceivedNotification(arg), _cancellationToken);
+```
