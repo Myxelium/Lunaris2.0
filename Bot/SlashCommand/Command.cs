@@ -1,4 +1,11 @@
+using Discord;
+
 namespace Lunaris2.SlashCommand;
+
+public static class Option
+{
+    public const string Input = "input";
+}
 
 public static class Command
 {
@@ -12,6 +19,29 @@ public static class Command
     {
         public const string Name = "goodbye";
         public const string Description = "Say goodbye to the bot!";
+    }
+    
+    public static class Join
+    {
+        public const string Name = "join";
+        public const string Description = "Join the voice channel!";
+    }
+    
+    public static class Play
+    {
+        public const string Name = "play";
+        public const string Description = "Play a song!";
+
+        public static readonly List<SlashCommandOptionBuilder> Options = new()
+        {
+            new SlashCommandOptionBuilder
+            {
+                Name = "input",
+                Description = "The song you want to play",
+                Type = ApplicationCommandOptionType.String,
+                IsRequired = true
+            },
+        };
     }
     
     public static string[] GetAllCommands()

@@ -16,7 +16,6 @@ lavalink:
 #  defaultPluginRepository: "https://maven.lavalink.dev/releases" # optional, defaults to the Lavalink release repository
 #  defaultPluginSnapshotRepository: "https://maven.lavalink.dev/snapshots" # optional, defaults to the Lavalink snapshot repository
   server:
-    password: "youshallnotpass"
     sources:
       youtube: true
       bandcamp: true

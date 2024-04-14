@@ -1,13 +1,15 @@
+using Discord;
 using Discord.Net;
 using Discord.WebSocket;
 using Newtonsoft.Json;
 
 namespace Lunaris2.SlashCommand;
 
-public class SlashCommandBuilder(string commandName, string commandDescription)
+public class SlashCommandBuilder(string commandName, string commandDescription, List<SlashCommandOptionBuilder> commandOptions = null)
 {
     private string CommandName { get; set; } = commandName;
     private string CommandDescription { get; set; } = commandDescription;
+    private List<SlashCommandOptionBuilder> CommandOptions { get; set; }
 
     public async Task CreateSlashCommand(DiscordSocketClient client)
     {
@@ -20,6 +22,8 @@ public class SlashCommandBuilder(string commandName, string commandDescription)
         var globalCommand = new Discord.SlashCommandBuilder();
         globalCommand.WithName(CommandName);
         globalCommand.WithDescription(CommandDescription);
+        
+        commandOptions.ForEach(option => globalCommand.AddOption(option));
 
         try
         {
@@ -46,12 +50,12 @@ public class SlashCommandBuilder(string commandName, string commandDescription)
         }
     }
     
-    private async Task<bool> CommandExists(IEnumerable<SocketApplicationCommand> registeredCommands)
+    private Task<bool> CommandExists(IEnumerable<SocketApplicationCommand> registeredCommands)
     {
         if (!registeredCommands.Any(command => command.Name == CommandName && command.Description == CommandDescription))
-            return false;
+            return Task.FromResult(false);
         
         Console.WriteLine($"Command {CommandName} already exists.");
-        return true;
+        return Task.FromResult(true);
     }
 }

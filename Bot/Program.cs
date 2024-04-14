@@ -8,11 +8,15 @@ using Lunaris2.SlashCommand;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Victoria;
+using Victoria.Node;
+using RunMode = Discord.Commands.RunMode;
 
 namespace Lunaris2
 {
     public class Program
     {
+        public static LavaNode _lavaNode;
         public static void Main(string[] args)
         {
             CreateHostBuilder(args).Build().Run();
@@ -27,18 +31,34 @@ namespace Lunaris2
                         GatewayIntents = GatewayIntents.All
                     };
 
+                    var commandServiceConfig = new CommandServiceConfig{ DefaultRunMode = RunMode.Async };
+
                     var client = new DiscordSocketClient(config);
-                    var commands = new CommandService();
+                    var commands = new CommandService(commandServiceConfig);
                     var configuration = new ConfigurationBuilder()
                         .SetBasePath(AppContext.BaseDirectory)
                         .AddJsonFile("appsettings.json")
                         .Build();
-                    
+
                     services.AddSingleton(client)
                         .AddSingleton(commands)
                         .AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()))
                         .AddSingleton<DiscordEventListener>()
-                        .AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()));
+                        .AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()))
+                        .AddLavaNode(x =>
+                        {
+                            x.SelfDeaf = false;
+                            x.Hostname = "lavalink.devamop.in";
+                            x.Port = 80;
+                            x.Authorization = "DevamOP";
+                        })
+                        // .AddLavaNode(x =>
+                        // {
+                        //     x.SelfDeaf = false;
+                        //     x.Hostname = "localhost";
+                        //     x.Port = 2333;
+                        // })
+                        .AddSingleton<LavaNode>();
 
                     client.Ready += () => Client_Ready(client);
                     client.Log += Log;
@@ -52,6 +72,8 @@ namespace Lunaris2
                         .StartAsync()
                         .GetAwaiter()
                         .GetResult();
+                    
+                    _lavaNode = services.BuildServiceProvider().GetRequiredService<LavaNode>();
 
                     var listener = services
                         .BuildServiceProvider()
@@ -63,10 +85,10 @@ namespace Lunaris2
                         .GetResult();
                 });
 
-        private static Task Client_Ready(DiscordSocketClient client)
+        private static async Task Client_Ready(DiscordSocketClient client)
         {
+            await _lavaNode.ConnectAsync();
             client.RegisterCommands();
-            return Task.CompletedTask;
         }
         
         private static Task Log(LogMessage arg)
