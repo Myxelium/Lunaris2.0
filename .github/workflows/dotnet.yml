@@ -3,8 +3,6 @@ name: .NET Core CI
 on:
   push:
     branches: [ master ]
-  pull_request:
-    branches: [ master ]
 
 jobs:
   build:
@@ -17,10 +15,38 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: '8.0'
+        dotnet-version: '8.0.x'
 
     - name: Restore dependencies
       run: dotnet restore ./Bot/Lunaris2.csproj
 
     - name: Build
-      run: dotnet build ./Bot/Lunaris2.csproj --no-restore
+      run: dotnet build ./Bot/Lunaris2.csproj --no-restore -c Release -o ./out
+
+    - name: Test
+      run: dotnet test ./Bot/Lunaris2.csproj --no-build --verbosity normal
+
+    - name: Publish
+      run: dotnet publish ./Bot/Lunaris2.csproj --configuration Release --output ./out
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      id: upload-release-asset 
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+        asset_path: ./out/Bot.zip
+        asset_name: Bot.zip
+        asset_content_type: application/zip
