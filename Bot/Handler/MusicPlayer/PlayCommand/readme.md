@@ -8,6 +8,8 @@ flowchart TD
     PlayTrack --> NowPlayingEmbed
 ```
 
+## Steps in the code
+
 | Name | Description |
 |--|--|
 | PlayHandler | Holds the logic for playing songs |
@@ -19,7 +21,7 @@ flowchart TD
 
 There is also OnTrackEnd, when it get called an attempt is made to play the next song in queue.
 
-Short explaination for some of the variables used:
+## Short explaination for some of the variables used:
 
 | Variable | Type | Description |
 | --- | --- | --- |
