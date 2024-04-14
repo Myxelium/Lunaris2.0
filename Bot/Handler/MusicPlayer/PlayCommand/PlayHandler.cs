@@ -1,4 +1,5 @@
 using Discord;
+using Discord.Commands;
 using Discord.WebSocket;
 using Lunaris2.SlashCommand;
 using MediatR;
@@ -13,29 +14,36 @@ public record PlayCommand(SocketSlashCommand Message) : IRequest;
 
 public class PlayHandler : IRequestHandler<PlayCommand>
 {
+    private readonly MusicEmbed _musicEmbed;
     private readonly LavaNode _lavaNode;
     private readonly DiscordSocketClient _client;
+    private SocketSlashCommand _context;
     
-    public PlayHandler(LavaNode lavaNode, DiscordSocketClient client)
+    public PlayHandler(
+        LavaNode lavaNode, 
+        DiscordSocketClient client, 
+        MusicEmbed musicEmbed)
     {
         _lavaNode = lavaNode;
         _client = client;
+        _musicEmbed = musicEmbed;
     }
     
+    [Command(RunMode = RunMode.Async)]
     public async Task Handle(PlayCommand command, CancellationToken cancellationToken)
     {
-        var context = command.Message;
+        _context = command.Message;
 
         await _lavaNode.EnsureConnected();
 
-        var songName = context.GetOptionValueByName(Option.Input);
+        var songName = _context.GetOptionValueByName(Option.Input);
 
         if (string.IsNullOrWhiteSpace(songName)) {
-            await context.RespondAsync("Please provide search terms.");
+            await _context.RespondAsync("Please provide search terms.");
             return;
         }
 
-        var player = await GetPlayer(context);
+        var player = await GetPlayer();
         
         if (player == null) 
             return;
@@ -45,10 +53,12 @@ public class PlayHandler : IRequestHandler<PlayCommand>
                 ? SearchType.Direct
                 : SearchType.YouTube, songName);
         
-        if (!await HandleSearchResponse(searchResponse, player, context, songName)) 
+        if (!await SearchResponse(searchResponse, player, songName)) 
             return;
 
         await PlayTrack(player);
+        
+        await _musicEmbed.NowPlayingEmbed(player, _context, _client);
 
         _lavaNode.OnTrackEnd += OnTrackEnd;
     }
@@ -57,15 +67,14 @@ public class PlayHandler : IRequestHandler<PlayCommand>
     {
         var player = arg.Player;
         if (!player.Vueue.TryDequeue(out var nextTrack))
-        {
-            await player.TextChannel.SendMessageAsync("Queue completed!");
             return;
-        }
 
         await player.PlayAsync(nextTrack);
+        
+        await _musicEmbed.NowPlayingEmbed(player, _context, _client);
     }
     
-    private async Task PlayTrack(LavaPlayer<LavaTrack> player)
+    private static async Task PlayTrack(LavaPlayer<LavaTrack> player)
     {
         if (player.PlayerState is PlayerState.Playing or PlayerState.Paused) {
             return;
@@ -75,34 +84,34 @@ public class PlayHandler : IRequestHandler<PlayCommand>
         await player.PlayAsync(lavaTrack);
     }
     
-    private async Task<LavaPlayer<LavaTrack>?> GetPlayer(SocketSlashCommand context)
+    private async Task<LavaPlayer<LavaTrack>?> GetPlayer()
     {
-        var voiceState = context.User as IVoiceState;
+        var voiceState = _context.User as IVoiceState;
 
         if (voiceState?.VoiceChannel != null)
-            return await _lavaNode.JoinAsync(voiceState.VoiceChannel, context.Channel as ITextChannel);
+            return await _lavaNode.JoinAsync(voiceState.VoiceChannel, _context.Channel as ITextChannel);
         
-        await context.RespondAsync("You must be connected to a voice channel!");
+        await _context.RespondAsync("You must be connected to a voice channel!");
         return null;
     }
     
-    private async Task<bool> HandleSearchResponse(SearchResponse searchResponse, LavaPlayer<LavaTrack> player, SocketSlashCommand context, string songName)
+    private async Task<bool> SearchResponse(
+        SearchResponse searchResponse, LavaPlayer<LavaTrack> player, 
+        string songName)
     {
         if (searchResponse.Status is SearchStatus.LoadFailed or SearchStatus.NoMatches) {
-            await context.RespondAsync($"I wasn't able to find anything for `{songName}`.");
+            await _context.RespondAsync($"I wasn't able to find anything for `{songName}`.");
             return false;
         }
 
         if (!string.IsNullOrWhiteSpace(searchResponse.Playlist.Name)) {
             player.Vueue.Enqueue(searchResponse.Tracks);
             
-            await context.RespondAsync($"Enqueued {searchResponse.Tracks.Count} songs.");
+            await _context.RespondAsync($"Enqueued {searchResponse.Tracks.Count} songs.");
         }
         else {
             var track = searchResponse.Tracks.FirstOrDefault()!;
             player.Vueue.Enqueue(track);
-
-            await context.RespondAsync($"Enqueued {track?.Title}");
         }
 
         return true;

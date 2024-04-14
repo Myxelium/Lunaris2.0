@@ -5,11 +5,14 @@ using Newtonsoft.Json;
 
 namespace Lunaris2.SlashCommand;
 
-public class SlashCommandBuilder(string commandName, string commandDescription, List<SlashCommandOptionBuilder> commandOptions = null)
+public class SlashCommandBuilder(
+    string commandName, 
+    string commandDescription, 
+    List<SlashCommandOptionBuilder>? commandOptions = null)
 {
     private string CommandName { get; set; } = commandName;
     private string CommandDescription { get; set; } = commandDescription;
-    private List<SlashCommandOptionBuilder> CommandOptions { get; set; }
+    private List<SlashCommandOptionBuilder>? CommandOptions { get; set; } = commandOptions;
 
     public async Task CreateSlashCommand(DiscordSocketClient client)
     {
@@ -23,7 +26,7 @@ public class SlashCommandBuilder(string commandName, string commandDescription, 
         globalCommand.WithName(CommandName);
         globalCommand.WithDescription(CommandDescription);
         
-        commandOptions.ForEach(option => globalCommand.AddOption(option));
+        CommandOptions?.ForEach(option => globalCommand.AddOption(option));
 
         try
         {

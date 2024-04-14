@@ -1,7 +1,7 @@
-using Discord.Commands;
 using Lunaris2.Handler.GoodByeCommand;
 using Lunaris2.Handler.MusicPlayer.JoinCommand;
 using Lunaris2.Handler.MusicPlayer.PlayCommand;
+using Lunaris2.Handler.MusicPlayer.SkipCommand;
 using Lunaris2.Notification;
 using Lunaris2.SlashCommand;
 using MediatR;
@@ -26,7 +26,8 @@ public class MessageReceivedHandler(ISender mediator) : INotificationHandler<Mes
             case Command.Play.Name:
                 await mediator.Send(new PlayCommand(notification.Message), cancellationToken);
                 break;
-            default:
+            case Command.Skip.Name:
+                await mediator.Send(new SkipCommand(notification.Message), cancellationToken);
                 break;
         }
     }
