@@ -32,7 +32,11 @@ jobs:
     - name: Get the tag name
       id: get_tag
       run: echo "::set-output name=tag::${GITHUB_REF#refs/tags/}"
-      
+
+    - name: Get the version
+      id: get_version
+      run: echo "::set-output name=version::$(date +%s)"
+
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
@@ -40,7 +44,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
       with:
         tag_name: ${{ steps.get_tag.outputs.tag || 'default' }}
-        release_name: Release ${{ github.ref }}
+        release_name: Release v${{ steps.get_version.outputs.version }}
         draft: false
         prerelease: false
 
@@ -50,7 +54,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ./out/Bot.zip
         asset_name: Bot.zip
         asset_content_type: application/zip
