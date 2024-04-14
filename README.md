@@ -10,10 +10,12 @@ Lunaris2 is a Discord bot designed to play music in your server's voice channels
 
 ## Setup
 
-1. Clone the repository.
-2. Install the required packages by running `dotnet restore`.
-3. Build the project using `dotnet build`.
-4. Run the bot using `dotnet run`.
+1. Clone the repo.
+2. Extract.
+3. If there isn't already a appsettings.json file in there, create one.
+4. Set the discord bot token. How the file should look (without token): [appsettings.json](https://github.com/Myxelium/Lunaris2.0/blob/master/Bot/appsettings.json)]
+5. Make sure you got docker installed. And run the file ``start-services.sh``, make sure you got git-bash installed.
+6. Now you can start the project and run the application.
 
 ## Usage
 
