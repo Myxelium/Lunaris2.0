@@ -26,9 +26,13 @@ jobs:
     - name: Publish
       run: dotnet publish ./Bot/Lunaris2.csproj --configuration Release --output ./out
 
+    - name: Zip the build
+      run: 7z a -tzip ./out/Bot.zip ./out/*
+
     - name: Get the tag name
       id: get_tag
       run: echo "::set-output name=tag::${GITHUB_REF#refs/tags/}"
+      
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
