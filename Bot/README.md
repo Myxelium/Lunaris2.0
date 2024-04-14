@@ -3,8 +3,8 @@
 flowchart TD
     Program[Program] -->|Register| EventListener
     EventListener[DiscordEventListener] --> A
-    A[MessageReceivedHandler] --> B(Message)
-    B --> C{Send to correct command by 
+
+    A[MessageReceivedHandler] -->|Message| C{Send to correct command by 
             looking at commandName}
 
     C -->|JoinCommand| D[JoinHandler]
