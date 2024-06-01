@@ -19,6 +19,11 @@ flowchart TD
     C -->|HelloCommand| F[HelloHandler]
     C -->|GoodbyeCommand| G[GoodbyeHandler]
 ```
+Program registers an event listener ```DiscordEventListener``` which publish a message :
+
+```c#
+await Mediator.Publish(new MessageReceivedNotification(arg), _cancellationToken);
+```
 
 ## Handler integrations
 ```mermaid
@@ -29,10 +34,4 @@ flowchart TD
     G[GoodbyeHandler] --> Disc[Discord Api]
     v[ChatHandler] --> Disc[Discord Api]
     E --> Lava[Lavalink]
-```
-
-Program registers an event listener ```DiscordEventListener``` which publish a message :
-
-```c#
-await Mediator.Publish(new MessageReceivedNotification(arg), _cancellationToken);
 ```
