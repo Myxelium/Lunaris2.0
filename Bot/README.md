@@ -2,9 +2,16 @@
 ```mermaid
 flowchart TD
     Program[Program] -->|Register| EventListener
-    EventListener[DiscordEventListener] --> A
+    EventListener[DiscordEventListener] --> A[MessageReceivedHandler]
 
-    A[MessageReceivedHandler] -->|Message| C{Send to correct command by 
+    EventListener[DiscordEventListener] --> A2[SlashCommandReceivedHandler]
+
+    A --> |Message| f{If bot is mentioned}
+    f --> v[ChatHandler]
+    v --> o[Ollama Server]
+    o --> v
+
+    A2[SlashCommandReceivedHandler] -->|Message| C{Send to correct command by 
             looking at commandName}
 
     C -->|JoinCommand| D[JoinHandler]
@@ -12,6 +19,17 @@ flowchart TD
     C -->|HelloCommand| F[HelloHandler]
     C -->|GoodbyeCommand| G[GoodbyeHandler]
 ```
+
+## Handler integrations
+```mermaid
+flowchart TD
+    D[JoinHandler] --> Disc[Discord Api]
+    E[PlayHandler] --> Disc[Discord Api]
+    F[HelloHandler] --> Disc[Discord Api]
+    G[GoodbyeHandler] --> Disc[Discord Api]
+    v[ChatHandler] --> Disc[Discord Api]
+    E --> Lava[Lavalink]
+```mermaid
 
 Program registers an event listener ```DiscordEventListener``` which publish a message :
 
