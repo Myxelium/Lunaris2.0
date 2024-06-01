@@ -29,7 +29,7 @@ flowchart TD
     G[GoodbyeHandler] --> Disc[Discord Api]
     v[ChatHandler] --> Disc[Discord Api]
     E --> Lava[Lavalink]
-```mermaid
+```
 
 Program registers an event listener ```DiscordEventListener``` which publish a message :
 
