@@ -12,7 +12,7 @@ public static class SlashCommandRegistration
         RegisterCommand(client, Command.Join.Name, Command.Join.Description);
         RegisterCommand(client, Command.Skip.Name, Command.Skip.Description);
         RegisterCommand(client, Command.Play.Name, Command.Play.Description, Command.Play.Options);
-        RegisterCommand(client, Command.Stop.Name, Command.Stop.Description);
+        RegisterCommand(client, Command.Stop.Name, Command.Stop.Description); 
     }
 
     private static void RegisterCommand(

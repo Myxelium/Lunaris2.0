@@ -19,13 +19,19 @@ public class DiscordEventListener(DiscordSocketClient client, IServiceScopeFacto
 
     public async Task StartAsync()
     {
-        client.SlashCommandExecuted += OnMessageReceivedAsync;
+        client.SlashCommandExecuted += OnSlashCommandRecievedAsync;
+        client.MessageReceived += OnMessageReceivedAsync;
 
         await Task.CompletedTask;
     }
 
-    private async Task OnMessageReceivedAsync(SocketSlashCommand  arg)
+    private async Task OnMessageReceivedAsync(SocketMessage arg)
     {
         await Mediator.Publish(new MessageReceivedNotification(arg), _cancellationToken);
+    }
+    
+    private async Task OnSlashCommandRecievedAsync(SocketSlashCommand arg)
+    {
+        await Mediator.Publish(new SlashCommandReceivedNotification(arg), _cancellationToken);
     }
 }

@@ -3,6 +3,7 @@ using Discord;
 using Discord.Commands;
 using Discord.Interactions;
 using Discord.WebSocket;
+using Lunaris2.Handler.ChatCommand;
 using Lunaris2.Handler.MusicPlayer;
 using Lunaris2.Notification;
 using Lunaris2.SlashCommand;
@@ -54,7 +55,9 @@ public class Program
                         nodeConfiguration.Authorization = configuration["LavaLinkPassword"];
                     })
                     .AddSingleton<LavaNode>()
-                    .AddSingleton<MusicEmbed>();
+                    .AddSingleton<MusicEmbed>()
+                    .AddSingleton<ChatSettings>()
+                    .Configure<ChatSettings>(configuration.GetSection("LLM"));
 
                 client.Ready += () => Client_Ready(client);
                 client.Log += Log;
