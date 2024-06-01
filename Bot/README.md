@@ -7,7 +7,7 @@ flowchart TD
     EventListener[DiscordEventListener] --> A2[SlashCommandReceivedHandler]
 
     A --> |Message| f{If bot is mentioned}
-    f --> v[ChatHandler]
+    f --> |ChatCommand| v[ChatHandler]
 
     A2[SlashCommandReceivedHandler] -->|Message| C{Send to correct command by 
             looking at commandName}
