@@ -8,8 +8,6 @@ flowchart TD
 
     A --> |Message| f{If bot is mentioned}
     f --> v[ChatHandler]
-    v --> o[Ollama Server]
-    o --> v
 
     A2[SlashCommandReceivedHandler] -->|Message| C{Send to correct command by 
             looking at commandName}
@@ -33,5 +31,7 @@ flowchart TD
     F[HelloHandler] --> Disc[Discord Api]
     G[GoodbyeHandler] --> Disc[Discord Api]
     v[ChatHandler] --> Disc[Discord Api]
+    v --> o[Ollama Server]
+    o --> v
     E --> Lava[Lavalink]
 ```
