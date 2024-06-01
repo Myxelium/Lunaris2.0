@@ -1,37 +1,37 @@
-using Lunaris2.Handler.GoodByeCommand;
-using Lunaris2.Handler.MusicPlayer.JoinCommand;
-using Lunaris2.Handler.MusicPlayer.PlayCommand;
-using Lunaris2.Handler.MusicPlayer.SkipCommand;
+using System.Text.RegularExpressions;
+using Discord.WebSocket;
 using Lunaris2.Notification;
-using Lunaris2.SlashCommand;
 using MediatR;
 
 namespace Lunaris2.Handler;
 
-public class MessageReceivedHandler(ISender mediator) : INotificationHandler<MessageReceivedNotification>
+public class MessageReceivedHandler : INotificationHandler<MessageReceivedNotification>
 {
+    private readonly DiscordSocketClient _client;
+    private readonly ISender _mediatir;
+
+    public MessageReceivedHandler(DiscordSocketClient client, ISender mediatir)
+    {
+        _client = client;
+        _mediatir = mediatir;
+    }
+
     public async Task Handle(MessageReceivedNotification notification, CancellationToken cancellationToken)
     {
-        switch (notification.Message.CommandName)
+        await BotMentioned(notification, cancellationToken);
+    }
+
+    private async Task BotMentioned(MessageReceivedNotification notification, CancellationToken cancellationToken)
+    {
+        if (notification.Message.MentionedUsers.Any(user => user.Id == _client.CurrentUser.Id))
         {
-            case Command.Hello.Name:
-                await mediator.Send(new HelloCommand.HelloCommand(notification.Message), cancellationToken);
-                break;
-            case Command.Goodbye.Name:
-                await mediator.Send(new GoodbyeCommand(notification.Message), cancellationToken);
-                break;
-            case Command.Join.Name:
-                await mediator.Send(new JoinCommand(notification.Message), cancellationToken);
-                break;
-            case Command.Play.Name:
-                await mediator.Send(new PlayCommand(notification.Message), cancellationToken);
-                break;
-            case Command.Skip.Name:
-                await mediator.Send(new SkipCommand(notification.Message), cancellationToken);
-                break;
-            case Command.Chat.Name:
-                await mediator.Send(new ChatCommand.ChatCommand(notification.Message), cancellationToken);
-                break;
+            // The bot was mentioned
+            const string pattern = "<.*?>";
+            const string replacement = "";
+            var regex = new Regex(pattern);
+            var messageContent = regex.Replace(notification.Message.Content, replacement);
+            
+            await _mediatir.Send(new ChatCommand.ChatCommand(notification.Message, messageContent), cancellationToken);
         }
     }
 }

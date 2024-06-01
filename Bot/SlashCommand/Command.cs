@@ -21,23 +21,6 @@ public static class Command
         public const string Description = "Say goodbye to the bot!";
     }
     
-    public static class Chat
-    {
-        public const string Name = "chat";
-        public const string Description = "Chat with the bot!";
-        
-        public static readonly List<SlashCommandOptionBuilder>? Options = new()
-        {
-            new SlashCommandOptionBuilder
-            {
-                Name = "message",
-                Description = "Chat with Lunaris",
-                Type = ApplicationCommandOptionType.String,
-                IsRequired = true
-            }
-        };
-    }
-    
     public static class Join
     {
         public const string Name = "join";

@@ -1,64 +1,62 @@
 using System.Text;
 using Discord.WebSocket;
-using Lunaris2.Handler.MusicPlayer;
-using Lunaris2.SlashCommand;
 using MediatR;
+using Microsoft.Extensions.Options;
 using OllamaSharp;
-using OllamaSharp.Models;
 
 namespace Lunaris2.Handler.ChatCommand
 {
-    public record ChatCommand(SocketSlashCommand Message) : IRequest;
+    public record ChatCommand(SocketMessage Message, string FilteredMessage) : IRequest;
 
     public class ChatHandler : IRequestHandler<ChatCommand>
-    {        
-        private readonly Uri _uri = new("http://192.168.50.54:11434");
+    {
         private readonly OllamaApiClient _ollama;
-        private SocketSlashCommand _context;
-        
-        public ChatHandler()
+        private readonly Dictionary<ulong, Chat?> _chatContexts = new();
+
+        public ChatHandler(IOptions<ChatSettings> chatSettings)
         {
-            _ollama = new OllamaApiClient(_uri)
+            var uri = new Uri(chatSettings.Value.Url);
+            
+            _ollama = new OllamaApiClient(uri)
             {
-                SelectedModel = "lunaris"
+                SelectedModel = chatSettings.Value.Model
             };
         }
         
         public async Task Handle(ChatCommand command, CancellationToken cancellationToken)
         {
-            _context = command.Message;
-            
-            var userMessage = _context.GetOptionValueByName(Option.Input);
+            var channelId = command.Message.Channel.Id;
+            _chatContexts.TryAdd(channelId, null);
+
+            var userMessage = command.FilteredMessage;
             
             using var setTyping = command.Message.Channel.EnterTypingState();
-            await command.Message.DeferAsync();
             
             if (string.IsNullOrWhiteSpace(userMessage))
             {
-                await command.Message.ModifyOriginalResponseAsync(properties => properties.Content = "Am I expected to read your mind?");
+                await command.Message.Channel.SendMessageAsync("Am I expected to read your mind?");
                 setTyping.Dispose();
                 return;
             }
             
-            var response = await GenerateResponse(userMessage, cancellationToken);
-            await command.Message.ModifyOriginalResponseAsync(properties => properties.Content = response);
+            var response = await GenerateResponse(userMessage, channelId, cancellationToken);
+            await command.Message.Channel.SendMessageAsync(response);
+            
+            setTyping.Dispose();
         }
 
-        private async Task<string> GenerateResponse(string userMessage, CancellationToken cancellationToken)
+        private async Task<string> GenerateResponse(string userMessage, ulong channelId, CancellationToken cancellationToken)
         {
             var response = new StringBuilder();
-            ConversationContext? chatContext = null;
 
-            chatContext = await _ollama.StreamCompletion(
-                userMessage, 
-                chatContext, 
-                Streamer, 
-                cancellationToken: cancellationToken);
-            
+            if (_chatContexts[channelId] == null)
+            {
+                _chatContexts[channelId] = _ollama.Chat(stream => response.Append(stream.Message?.Content ?? ""));
+            }
+
+            await _chatContexts[channelId].Send(userMessage, cancellationToken);
+
             return response.ToString();
-
-            void Streamer(GenerateCompletionResponseStream stream) => 
-                response.Append(stream.Response);
         }
     }
 }
