@@ -29,6 +29,9 @@ public class MessageReceivedHandler(ISender mediator) : INotificationHandler<Mes
             case Command.Skip.Name:
                 await mediator.Send(new SkipCommand(notification.Message), cancellationToken);
                 break;
+            case Command.Chat.Name:
+                await mediator.Send(new ChatCommand.ChatCommand(notification.Message), cancellationToken);
+                break;
         }
     }
 }
