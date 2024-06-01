@@ -23,6 +23,11 @@ Program registers an event listener ```DiscordEventListener``` which publish a m
 await Mediator.Publish(new MessageReceivedNotification(arg), _cancellationToken);
 ```
 
+|Name| Description |
+|--|--|
+| SlashCommandReceivedHandler | Handles commands using ``/`` from any Discord Guild/Server. |
+| MessageReceivedHandler| Listens to **all** messages. |
+
 ## Handler integrations
 ```mermaid
 flowchart TD
@@ -35,3 +40,10 @@ flowchart TD
     o --> v
     E --> Lava[Lavalink]
 ```
+|Name| Description |
+|--|--|
+| JoinHandler| Handles the logic for **just** joining a voice channel. |
+| PlayHandler| Handles the logic for joining and playing music in a voice channel. |
+| HelloHandler| Responds with Hello. (Dummy handler, will be removed)|
+| GoodbyeHandler| Responds with Goodbye. (Dummy handler, will be removed)|
+| ChatHandler| Handles the logic for LLM chat with user. |
