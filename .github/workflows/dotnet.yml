@@ -7,10 +7,13 @@ on:
 jobs:
   build:
 
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0 # required for github-action-get-previous-tag
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
