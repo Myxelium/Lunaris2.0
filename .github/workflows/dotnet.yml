@@ -30,7 +30,7 @@ jobs:
       run: dotnet publish ./Bot/Lunaris2.csproj --configuration Release --output ./out
 
     - name: Zip the build
-      run: 7z a -tzip ./out/Bot.zip ./out/*
+      run: 7z a -tzip ./out/Lunaris.zip ./out/*
 
     - name: Get previous tag
       id: previoustag
@@ -62,6 +62,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./out/Bot.zip
-        asset_name: Bot.zip
+        asset_path: ./out/Lunaris.zip
+        asset_name: Lunaris.zip
         asset_content_type: application/zip
