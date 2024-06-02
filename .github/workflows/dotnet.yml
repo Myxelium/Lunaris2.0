@@ -32,10 +32,6 @@ jobs:
     - name: Zip the build
       run: 7z a -tzip ./out/Bot.zip ./out/*
 
-    - name: Get the tag name
-      id: get_tag
-      run: echo "::set-output name=tag::${GITHUB_REF#refs/tags/}"
-
     - name: Get previous tag
       id: previoustag
       uses: 'WyriHaximus/github-action-get-previous-tag@v1'
