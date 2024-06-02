@@ -25,7 +25,3 @@ Lunaris2 is a Discord bot designed to play music in your server's voice channels
 ## Contributing
 
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
-
-## License
-
-[MIT](https://choosealicense.com/licenses/mit/)
