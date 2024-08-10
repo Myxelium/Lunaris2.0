@@ -12,9 +12,11 @@ namespace Lunaris2.Handler.ChatCommand
     {
         private readonly OllamaApiClient _ollama;
         private readonly Dictionary<ulong, Chat?> _chatContexts = new();
+        private readonly ChatSettings _chatSettings;
 
         public ChatHandler(IOptions<ChatSettings> chatSettings)
         {
+            _chatSettings = chatSettings.Value;
             var uri = new Uri(chatSettings.Value.Url);
             
             _ollama = new OllamaApiClient(uri)
@@ -29,6 +31,10 @@ namespace Lunaris2.Handler.ChatCommand
             _chatContexts.TryAdd(channelId, null);
 
             var userMessage = command.FilteredMessage;
+
+            var randomPersonality = _chatSettings.Personalities[new Random().Next(_chatSettings.Personalities.Count)];
+
+            userMessage = $"{randomPersonality.Instruction} {userMessage}";
             
             using var setTyping = command.Message.Channel.EnterTypingState();
             
