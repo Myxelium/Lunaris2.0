@@ -42,7 +42,8 @@ public class Program
                     .AddJsonFile("appsettings.json")
                     .Build();
 
-                services.AddSingleton(client)
+                services
+                    .AddSingleton(client)
                     .AddSingleton(commands)
                     .AddMediatR(configuration => configuration.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()))
                     .AddSingleton<DiscordEventListener>()
