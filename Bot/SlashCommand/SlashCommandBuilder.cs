@@ -42,7 +42,6 @@ public class SlashCommandBuilder(
 
     private static async Task RemoveUnusedCommands(string[] commands, IEnumerable<SocketApplicationCommand> registeredCommands)
     {
-        // Remove commands from Discord(registeredCommands) that are not in the list of commands
         foreach(var command in registeredCommands)
         {
             if (commands.Contains(command.Name)) 

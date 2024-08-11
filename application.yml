@@ -2,17 +2,32 @@ server: # REST and WS server
   port: 2333
   address: 0.0.0.0
 plugins:
-#  name: # Name of the plugin
-#    some_key: some_value # Some key-value pair for the plugin
-#    another_key: another_value
+  youtube:
+    enabled: true # Whether this source can be used.
+    allowSearch: true # Whether "ytsearch:" and "ytmsearch:" can be used.
+    allowDirectVideoIds: true # Whether just video IDs can match. If false, only complete URLs will be loaded.
+    allowDirectPlaylistIds: true # Whether just playlist IDs can match. If false, only complete URLs will be loaded.
+    # The clients to use for track loading. See below for a list of valid clients.
+    # Clients are queried in the order they are given (so the first client is queried first and so on...)
+    clients:
+      - MUSIC
+      - ANDROID_TESTSUITE
+      - WEB
+      - TVHTML5EMBEDDED
+    #  name: # Name of the plugin
+    #    some_key: some_value # Some key-value pair for the plugin
+    #    another_key: another_value
 lavalink:
   plugins:
 #    - dependency: "group:artifact:version"
 #      repository: "repository"
+      - dependency: "dev.lavalink.youtube:youtube-plugin:1.5.2"
+        snapshot: false # Set to true if you want to use a snapshot version.
+        
   server:
     password: "youshallnotpass"
     sources:
-      youtube: true
+      youtube: false
       bandcamp: true
       soundcloud: true
       twitch: true
@@ -30,9 +45,9 @@ lavalink:
       rotation: true
       channelMix: true
       lowPass: true
-    bufferDurationMs: 400 # The duration of the NAS buffer. Higher values fare better against longer GC pauses. Duration <= 0 to disable JDA-NAS. Minimum of 40ms, lower values may introduce pauses.
-    frameBufferDurationMs: 5000 # How many milliseconds of audio to keep buffered
-    opusEncodingQuality: 10 # Opus encoder quality. Valid values range from 0 to 10, where 10 is best quality but is the most expensive on the CPU.
+    bufferDurationMs: 1000 # The duration of the NAS buffer. Higher values fare better against longer GC pauses. Duration <= 0 to disable JDA-NAS. Minimum of 40ms, lower values may introduce pauses.
+    frameBufferDurationMs: 10000 # How many milliseconds of audio to keep buffered
+    opusEncodingQuality: 5 # Opus encoder quality. Valid values range from 0 to 10, where 10 is best quality but is the most expensive on the CPU.
     resamplingQuality: LOW # Quality of resampling operations. Valid values are LOW, MEDIUM and HIGH, where HIGH uses the most CPU.
     trackStuckThresholdMs: 10000 # The threshold for how long a track can be stuck. A track is stuck if does not return any audio data.
     useSeekGhosting: true # Seek ghosting is the effect where whilst a seek is in progress, the audio buffer is read from until empty, or until seek is ready.

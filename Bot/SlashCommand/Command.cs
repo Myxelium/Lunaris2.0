@@ -9,22 +9,22 @@ public static class Option
 
 public static class Command
 {
-    public static class Hello
-    {
-        public const string Name = "hello";
-        public const string Description = "Say hello to the bot!";
-    }
-
-    public static class Goodbye
-    {
-        public const string Name = "goodbye";
-        public const string Description = "Say goodbye to the bot!";
-    }
+    // public static class Hello
+    // {
+    //     public const string Name = "hello";
+    //     public const string Description = "Say hello to the bot!";
+    // }
+    //
+    // public static class Goodbye
+    // {
+    //     public const string Name = "goodbye";
+    //     public const string Description = "Say goodbye to the bot!";
+    // }
     
-    public static class Join
+    public static class Disconnect
     {
-        public const string Name = "join";
-        public const string Description = "Join the voice channel!";
+        public const string Name = "disconnect";
+        public const string Description = "Disconnect from the voice channel!";
     }
     
     public static class Skip
@@ -33,10 +33,16 @@ public static class Command
         public const string Description = "Skip the current song!";
     }
     
-    public static class Stop
+    public static class Resume
     {
-        public const string Name = "stop";
-        public const string Description = "Stop the music!";
+        public const string Name = "resume";
+        public const string Description = "Resume the music!";
+    }
+    
+    public static class Pause
+    {
+        public const string Name = "pause";
+        public const string Description = "Pause the music!";
     }
     
     public static class Play

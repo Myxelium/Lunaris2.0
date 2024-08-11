@@ -1,11 +1,46 @@
 using Discord;
 using Discord.WebSocket;
-using Victoria.Node;
+using Lavalink4NET;
+using Lavalink4NET.Players;
+using Lavalink4NET.Players.Queued;
+using Microsoft.Extensions.Options;
 
 namespace Lunaris2.Handler.MusicPlayer;
 
 public static class Extensions
 {
+    public static async ValueTask<QueuedLavalinkPlayer?> GetPlayerAsync(
+        this IAudioService audioService, 
+        DiscordSocketClient client, 
+        SocketSlashCommand context, 
+        bool connectToVoiceChannel = true)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var retrieveOptions = new PlayerRetrieveOptions(
+            ChannelBehavior: connectToVoiceChannel ? PlayerChannelBehavior.Join : PlayerChannelBehavior.None);
+
+        var playerOptions = new QueuedLavalinkPlayerOptions { HistoryCapacity = 10000 };
+
+        var result = await audioService.Players
+            .RetrieveAsync(context.GetGuild(client).Id, context.GetGuild(client).GetUser(context.User.Id).VoiceChannel.Id, playerFactory: PlayerFactory.Queued, Options.Create(playerOptions), retrieveOptions)
+            .ConfigureAwait(false);
+
+        if (!result.IsSuccess)
+        {
+            var errorMessage = result.Status switch
+            {
+                PlayerRetrieveStatus.UserNotInVoiceChannel => "You are not connected to a voice channel.",
+                PlayerRetrieveStatus.BotNotConnected => "The bot is currently not connected.",
+                _ => "Unknown error.",
+            };
+
+            return null;
+        }
+        
+        return result.Player;
+    }
+    
     public static SocketGuild GetGuild(this SocketSlashCommand message, DiscordSocketClient client)
     {
         if (message.GuildId == null)
@@ -32,25 +67,7 @@ public static class Extensions
     {
         await message.RespondAsync(content, ephemeral: true);
     }
-        
-    public static async Task EnsureConnected(this LavaNode lavaNode)
-    {
-        if(!lavaNode.IsConnected)
-            await lavaNode.ConnectAsync();
-    }
-        
-    public static async Task JoinVoiceChannel(this SocketSlashCommand context, LavaNode lavaNode)
-    {
-        try
-        {
-            var textChannel = context.Channel as ITextChannel;
-            await lavaNode.JoinAsync(context.GetVoiceState().VoiceChannel, textChannel);
-            await context.RespondAsync($"Joined {context.GetVoiceState().VoiceChannel.Name}!");
-        }
-        catch (Exception exception) {
-            Console.WriteLine(exception);
-        }
-    }
+    
         
     public static string GetOptionValueByName(this SocketSlashCommand command, string optionName)
     {

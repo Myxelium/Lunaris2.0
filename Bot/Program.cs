@@ -1,26 +1,27 @@
 ﻿using System.Reflection;
 using Discord;
-using Discord.Commands;
 using Discord.Interactions;
 using Discord.WebSocket;
 using Lunaris2.Handler.ChatCommand;
+using Lavalink4NET.Extensions;
 using Lunaris2.Handler.MusicPlayer;
 using Lunaris2.Notification;
 using Lunaris2.SlashCommand;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Victoria;
 using Victoria.Node;
-using RunMode = Discord.Commands.RunMode;
 
 namespace Lunaris2;
 
 public class Program
 {
-    private static LavaNode? _lavaNode;
     public static void Main(string[] args)
     {
+        AppDomain.CurrentDomain.UnhandledException += (sender, eventArgs) =>
+        {
+            Console.WriteLine(eventArgs.ExceptionObject);
+        };
         CreateHostBuilder(args).Build().Run();
     }
 
@@ -32,11 +33,8 @@ public class Program
                 {
                     GatewayIntents = GatewayIntents.All
                 };
-
-                var commandServiceConfig = new CommandServiceConfig{ DefaultRunMode = RunMode.Async };
-
+                
                 var client = new DiscordSocketClient(config);
-                var commands = new CommandService(commandServiceConfig);
                 var configuration = new ConfigurationBuilder()
                     .SetBasePath(AppContext.BaseDirectory)
                     .AddJsonFile("appsettings.json")
@@ -44,16 +42,18 @@ public class Program
 
                 services
                     .AddSingleton(client)
-                    .AddSingleton(commands)
-                    .AddMediatR(configuration => configuration.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()))
+                    .AddMediatR(mediatRServiceConfiguration => mediatRServiceConfiguration.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()))
                     .AddSingleton<DiscordEventListener>()
                     .AddSingleton(service => new InteractionService(service.GetRequiredService<DiscordSocketClient>()))
-                    .AddLavaNode(nodeConfiguration =>
+                    .AddLavalink()
+                    .ConfigureLavalink(options =>
                     {
-                        nodeConfiguration.SelfDeaf = false;
-                        nodeConfiguration.Hostname = configuration["LavaLinkHostname"];
-                        nodeConfiguration.Port = Convert.ToUInt16(configuration["LavaLinkPort"]);
-                        nodeConfiguration.Authorization = configuration["LavaLinkPassword"];
+                        options.BaseAddress = new Uri(
+                            $"http://{configuration["LavaLinkHostname"]}:{configuration["LavaLinkPort"]}"
+                        );
+                        options.WebSocketUri = new Uri($"ws://{configuration["LavaLinkHostname"]}:{configuration["LavaLinkPort"]}/v4/websocket");
+                        options.Passphrase = configuration["LavaLinkPassword"] ?? "youshallnotpass";
+                        options.Label = "Node";
                     })
                     .AddSingleton<LavaNode>()
                     .AddSingleton<MusicEmbed>()
@@ -62,7 +62,7 @@ public class Program
 
                 client.Ready += () => Client_Ready(client);
                 client.Log += Log;
-                    
+                
                 client
                     .LoginAsync(TokenType.Bot, configuration["Token"])
                     .GetAwaiter()
@@ -72,8 +72,6 @@ public class Program
                     .StartAsync()
                     .GetAwaiter()
                     .GetResult();
-                    
-                _lavaNode = services.BuildServiceProvider().GetRequiredService<LavaNode>();
 
                 var listener = services
                     .BuildServiceProvider()
@@ -85,10 +83,10 @@ public class Program
                     .GetResult();
             });
 
-    private static async Task Client_Ready(DiscordSocketClient client)
+    private static Task Client_Ready(DiscordSocketClient client)
     {
-        await _lavaNode.ConnectAsync();
         client.RegisterCommands();
+        return Task.CompletedTask;
     }
         
     private static Task Log(LogMessage arg)
