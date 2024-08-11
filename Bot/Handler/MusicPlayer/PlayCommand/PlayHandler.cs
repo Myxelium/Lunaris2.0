@@ -90,7 +90,5 @@ public class PlayHandler : IRequestHandler<PlayCommand>
                 await context.SendMessageAsync($"Couldn't read song information", _client);
             }
         }
-        
-        _audioService.TrackStarted += OnTrackStarted;
     }
 }

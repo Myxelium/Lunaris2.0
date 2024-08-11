@@ -10,6 +10,7 @@ using Lunaris2.SlashCommand;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Victoria.Node;
 
 namespace Lunaris2;
 
@@ -41,8 +42,7 @@ public class Program
 
                 services
                     .AddSingleton(client)
-                    .AddSingleton(commands)
-                    .AddMediatR(configuration => configuration.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()))
+                    .AddMediatR(mediatRServiceConfiguration => mediatRServiceConfiguration.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()))
                     .AddSingleton<DiscordEventListener>()
                     .AddSingleton(service => new InteractionService(service.GetRequiredService<DiscordSocketClient>()))
                     .AddLavalink()
@@ -63,7 +63,6 @@ public class Program
                 client.Ready += () => Client_Ready(client);
                 client.Log += Log;
                 
-                    
                 client
                     .LoginAsync(TokenType.Bot, configuration["Token"])
                     .GetAwaiter()
