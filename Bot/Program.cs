@@ -6,6 +6,7 @@ using Lunaris2.Handler.ChatCommand;
 using Lavalink4NET.Extensions;
 using Lunaris2.Handler.MusicPlayer;
 using Lunaris2.Notification;
+using Lunaris2.Service;
 using Lunaris2.SlashCommand;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -41,10 +42,7 @@ public class Program
                     .Build();
 
                 services
-                    .AddSingleton(client)
                     .AddMediatR(mediatRServiceConfiguration => mediatRServiceConfiguration.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()))
-                    .AddSingleton<DiscordEventListener>()
-                    .AddSingleton(service => new InteractionService(service.GetRequiredService<DiscordSocketClient>()))
                     .AddLavalink()
                     .ConfigureLavalink(options =>
                     {
@@ -58,6 +56,10 @@ public class Program
                     .AddSingleton<LavaNode>()
                     .AddSingleton<MusicEmbed>()
                     .AddSingleton<ChatSettings>()
+                    .AddSingleton(client)
+                    .AddSingleton<DiscordEventListener>()
+                    .AddSingleton<VoiceChannelMonitorService>()
+                    .AddSingleton(service => new InteractionService(service.GetRequiredService<DiscordSocketClient>()))
                     .Configure<ChatSettings>(configuration.GetSection("LLM"));
 
                 client.Ready += () => Client_Ready(client);
@@ -86,6 +88,8 @@ public class Program
     private static Task Client_Ready(DiscordSocketClient client)
     {
         client.RegisterCommands();
+        
+        new VoiceChannelMonitorService(client).StartMonitoring();
         return Task.CompletedTask;
     }
         

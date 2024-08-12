@@ -9,18 +9,6 @@ public static class Option
 
 public static class Command
 {
-    // public static class Hello
-    // {
-    //     public const string Name = "hello";
-    //     public const string Description = "Say hello to the bot!";
-    // }
-    //
-    // public static class Goodbye
-    // {
-    //     public const string Name = "goodbye";
-    //     public const string Description = "Say goodbye to the bot!";
-    // }
-    
     public static class Disconnect
     {
         public const string Name = "disconnect";

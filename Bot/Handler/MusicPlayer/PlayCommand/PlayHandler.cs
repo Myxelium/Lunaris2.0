@@ -5,6 +5,7 @@ using Lavalink4NET;
 using Lavalink4NET.Events.Players;
 using Lavalink4NET.Players.Queued;
 using Lavalink4NET.Rest.Entities.Tracks;
+using System.Threading;
 
 namespace Lunaris2.Handler.MusicPlayer.PlayCommand;
 
@@ -37,57 +38,54 @@ public class PlayHandler : IRequestHandler<PlayCommand>
             await _musicEmbed.NowPlayingEmbed(track, _context, _client);
     }
 
-    public async Task Handle(PlayCommand command, CancellationToken cancellationToken)
+    public Task Handle(PlayCommand command, CancellationToken cancellationToken)
     {
-        await _audioService.StartAsync(cancellationToken);
-        var context = command.Message;
-        _context = context;
-        
-        var searchQuery = context.GetOptionValueByName(Option.Input);
+        new Thread(PlayMusic).Start();
+        return Task.CompletedTask;
 
-        if (string.IsNullOrWhiteSpace(searchQuery)) {
-            await context.SendMessageAsync("Please provide search terms.", _client);
-            return;
-        }
-        
-        var player = await _audioService.GetPlayerAsync(_client, context, connectToVoiceChannel: true);
-
-        if (player is null)
-            return;
-
-        var trackLoadOptions = new TrackLoadOptions
+        async void PlayMusic()
         {
-            SearchMode = TrackSearchMode.YouTube,
-        };
+            await _audioService.StartAsync(cancellationToken);
+            var context = command.Message;
+            _context = context;
 
-        var track = await _audioService.Tracks
-            .LoadTrackAsync(
-                searchQuery,
-                trackLoadOptions,
-                cancellationToken: cancellationToken);
-        
-        if (track is null) 
-            await context.SendMessageAsync("😖 No results.", _client);
+            var searchQuery = context.GetOptionValueByName(Option.Input);
 
-        if (player.CurrentTrack is null)
-        {
-            await player
-                .PlayAsync(track, cancellationToken: cancellationToken)
-                .ConfigureAwait(false);
-        
-            await _musicEmbed.NowPlayingEmbed(track, context, _client);
-        }
-        else
-        {
-            if (track != null)
+            if (string.IsNullOrWhiteSpace(searchQuery))
             {
-                var queueTracks = new[] { new TrackQueueItem(track) };
-                await player.Queue.AddRangeAsync(queueTracks, cancellationToken);
-                await context.SendMessageAsync($"🔈 Added to queue: {track.Title}", _client);
+                await context.SendMessageAsync("Please provide search terms.", _client);
+                return;
+            }
+
+            var player = await _audioService.GetPlayerAsync(_client, context, connectToVoiceChannel: true);
+
+            if (player is null) return;
+
+            var trackLoadOptions = new TrackLoadOptions { SearchMode = TrackSearchMode.YouTube, };
+
+            var track = await _audioService.Tracks.LoadTrackAsync(searchQuery, trackLoadOptions, cancellationToken: cancellationToken);
+
+            if (track is null) await context.SendMessageAsync("😖 No results.", _client);
+
+            if (player.CurrentTrack is null)
+            {
+                await player.PlayAsync(track, cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+
+                await _musicEmbed.NowPlayingEmbed(track, context, _client);
             }
             else
             {
-                await context.SendMessageAsync($"Couldn't read song information", _client);
+                if (track != null)
+                {
+                    var queueTracks = new[] { new TrackQueueItem(track) };
+                    await player.Queue.AddRangeAsync(queueTracks, cancellationToken);
+                    await context.SendMessageAsync($"🔈 Added to queue: {track.Title}", _client);
+                }
+                else
+                {
+                    await context.SendMessageAsync($"Couldn't read song information", _client);
+                }
             }
         }
     }
