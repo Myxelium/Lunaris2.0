@@ -45,9 +45,16 @@ public class PlayHandler : IRequestHandler<PlayCommand>
 
         async void PlayMusic()
         {
-            await _audioService.StartAsync(cancellationToken);
             var context = command.Message;
             _context = context;
+            
+            if ((context.User as SocketGuildUser)?.VoiceChannel == null)
+            {
+                await context.SendMessageAsync("You must be in a voice channel to use this command.", _client);
+                return;
+            }
+            
+            await _audioService.StartAsync(cancellationToken);
 
             var searchQuery = context.GetOptionValueByName(Option.Input);
 
@@ -56,7 +63,7 @@ public class PlayHandler : IRequestHandler<PlayCommand>
                 await context.SendMessageAsync("Please provide search terms.", _client);
                 return;
             }
-
+            
             var player = await _audioService.GetPlayerAsync(_client, context, connectToVoiceChannel: true);
 
             if (player is null) return;
