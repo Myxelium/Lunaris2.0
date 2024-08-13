@@ -23,6 +23,24 @@ Lunaris supports AI chat using a large language model, this is done by hosting t
 
 The LLM is run using Ollama see more about Ollama [here](https://ollama.com/). Running LLM locally requires much resources from your system, minimum requirements is at least 8GB of ram. If your don't have enought ram, select a LLM model in the [appsettings file](https://github.com/Myxelium/Lunaris2.0/blob/master/Bot/appsettings.json#L15) that requires less of your system.
 
+*NOTE: you need to download the model from the Ollama ui, the model name which is preselected in the code is called ``gemma``.*
+
+## PM2 Setup
+- Install PM2 and configure it following their setup guide
+#### Lavalink
+* Download Lavalink 4.X.X (.jar)
+* Install Java 17
+
+If using Linux run following command to start Lavalink with PM2:
+``pm2 start "sudo java -Xmx1G -jar Lavalink.jar" --name Lavalink4.0.7``
+
+For me I have Lavalink.jar downloaded in ``/opt`` folder from Linux root. By running Lavalink using PM2, you can monitor it and manage it from a page in your browser instead of having to access the server terminal.
+#### Lunaris
+* Install dotnet
+
+Register the Lunaris bot with PM2:
+``pm2 start "dotnet Lunaris2.dll"``
+
 ## Usage
 
 - `/play <song>`: Plays the specified song in the voice channel you're currently in.
