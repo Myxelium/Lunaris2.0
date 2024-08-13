@@ -38,6 +38,26 @@ public static class MessageModule
             throw;
         }
     }
+    
+    public static async Task RemoveMessages(this SocketSlashCommand context, DiscordSocketClient client)
+    {
+        var guildId = context.GetGuild(client).Id;
+
+        if (GuildMessageIds.TryGetValue(guildId, out var value))
+        {
+            if (value.Count <= 0) 
+                return;
+            
+            foreach (var messageId in value)
+            {
+                var messageToDelete = await context.Channel.GetMessageAsync(messageId);
+                if (messageToDelete != null)
+                    await messageToDelete.DeleteAsync();
+            }
+
+            value.Clear();
+        }
+    }
 
     private static async Task<ulong> StoreForRemoval(SocketSlashCommand context, DiscordSocketClient client)
     {
