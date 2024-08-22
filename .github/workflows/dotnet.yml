@@ -1,67 +1,89 @@
-name: .NET Core CI
+name: Release
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
 
 jobs:
   build:
+    runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        target: [x86_64-pc-windows-gnu, x86_64-unknown-linux-gnu]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Install Windows target
+        run: rustup target add x86_64-pc-windows-gnu
+
+      - name: Install MinGW-w64
+        run: sudo apt-get update && sudo apt-get install -y mingw-w64
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.target }}-binary
+          path: target/${{ matrix.target }}/release/
+
+  release:
+    needs: build
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-      with:
-        fetch-depth: 0 # required for github-action-get-previous-tag
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: '8.0.x'
+      - name: Get previous tag
+        id: previoustag
+        uses: 'WyriHaximus/github-action-get-previous-tag@v1'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Restore dependencies
-      run: dotnet restore ./Bot/Lunaris2.csproj
+      - name: Get next minor version
+        id: semver
+        uses: 'WyriHaximus/github-action-next-semvers@v1'
+        with:
+          version: ${{ steps.previoustag.outputs.tag }}
 
-    - name: Build
-      run: dotnet build ./Bot/Lunaris2.csproj --no-restore -c Release -o ./out
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.semver.outputs.next_minor }}
+          release_name: Release ${{ steps.semver.outputs.next_minor }}
+          draft: false
+          prerelease: false
 
-    - name: Publish
-      run: dotnet publish ./Bot/Lunaris2.csproj --configuration Release --output ./out
+      - name: Upload Release Asset (Windows)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: target/x86_64-pc-windows-gnu/release/
+          asset_name: windows-binary.zip
+          asset_content_type: application/zip
 
-    - name: Zip the build
-      run: 7z a -tzip ./out/Lunaris.zip ./out/*
-
-    - name: Get previous tag
-      id: previoustag
-      uses: 'WyriHaximus/github-action-get-previous-tag@v1'
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Get next minor version
-      id: semver
-      uses: 'WyriHaximus/github-action-next-semvers@v1'
-      with:
-        version: ${{ steps.previoustag.outputs.tag }}
-
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
-      with:
-        tag_name: ${{ steps.semver.outputs.patch }}
-        release_name: Release ${{ steps.semver.outputs.patch }}
-        draft: false
-        prerelease: false
-
-    - name: Upload Release Asset
-      id: upload-release-asset 
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./out/Lunaris.zip
-        asset_name: Lunaris.zip
-        asset_content_type: application/zip
+      - name: Upload Release Asset (Linux)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: target/x86_64-unknown-linux-gnu/release/
+          asset_name: linux-binary.tar.gz
+          asset_content_type: application/gzip
