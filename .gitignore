@@ -3,3 +3,5 @@
 .vs
 bin
 appsettings.json
+ollama
+plugins

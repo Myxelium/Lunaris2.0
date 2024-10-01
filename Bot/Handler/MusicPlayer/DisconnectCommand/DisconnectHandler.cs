@@ -17,6 +17,6 @@ public class DisconnectHandler(DiscordSocketClient client, IAudioService audioSe
             return;
 
         await player.DisconnectAsync(cancellationToken).ConfigureAwait(false);
-        await context.RespondAsync("Disconnected.").ConfigureAwait(false);
+        await context.SendMessageAsync("Disconnected.", client).ConfigureAwait(false);
     }
 }
