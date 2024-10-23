@@ -1,4 +1,6 @@
+using System.Net;
 using Discord;
+using Discord.Net;
 using Discord.WebSocket;
 
 namespace Lunaris2.Handler.MusicPlayer;
@@ -65,20 +67,35 @@ public static class MessageModule
 
         if (GuildMessageIds.TryGetValue(guildId, out var value))
         {
-            if (value.Count <= 0) 
+            if (value.Count <= 0)
                 return guildId;
-            
-            foreach (var messageId in value)
+
+            // Create a copy of the list to avoid modifying it during iteration
+            var messagesToDelete = new List<ulong>(value);
+
+            foreach (var messageId in messagesToDelete)
             {
-                var messageToDelete = await context.Channel.GetMessageAsync(messageId);
-                if (messageToDelete != null)
-                    await messageToDelete.DeleteAsync();
+                try
+                {
+                    var messageToDelete = await context.Channel.GetMessageAsync(messageId);
+                    if (messageToDelete != null)
+                    {
+                        await messageToDelete.DeleteAsync();
+                    }
+                }
+                catch (HttpException ex)
+                {
+                    if (ex.HttpCode != HttpStatusCode.NotFound)
+                        throw;
+                }
             }
 
+            // Clear the list after we're done with the iteration
             value.Clear();
         }
         else
         {
+            // If the guildId does not exist, add it to the dictionary
             GuildMessageIds.Add(guildId, new List<ulong>());
         }
 

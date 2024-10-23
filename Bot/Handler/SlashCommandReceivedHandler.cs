@@ -1,3 +1,4 @@
+using Lunaris2.Handler.MusicPlayer.ClearQueueCommand;
 using Lunaris2.Handler.MusicPlayer.DisconnectCommand;
 using Lunaris2.Handler.MusicPlayer.PauseCommand;
 using Lunaris2.Handler.MusicPlayer.PlayCommand;
@@ -31,6 +32,9 @@ public class SlashCommandReceivedHandler(ISender mediator) : INotificationHandle
                 break;
             case Command.Skip.Name:
                 await mediator.Send(new SkipCommand(notification.Message), cancellationToken);
+                break;
+            case Command.Clear.Name:
+                await mediator.Send(new ClearQueueCommand(notification.Message), cancellationToken);
                 break;
         }
     }

@@ -4,6 +4,7 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using Lunaris2.Handler.ChatCommand;
 using Lavalink4NET.Extensions;
+using Lavalink4NET.Integrations.SponsorBlock.Extensions;
 using Lunaris2.Handler.MusicPlayer;
 using Lunaris2.Notification;
 using Lunaris2.Service;
@@ -11,7 +12,6 @@ using Lunaris2.SlashCommand;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Victoria.Node;
 
 namespace Lunaris2;
 
@@ -23,7 +23,10 @@ public class Program
         {
             Console.WriteLine(eventArgs.ExceptionObject);
         };
-        CreateHostBuilder(args).Build().Run();
+        var app = CreateHostBuilder(args).Build();
+        
+        app.UseSponsorBlock();
+        app.Run();
     }
 
     private static IHostBuilder CreateHostBuilder(string[] args) =>
@@ -53,7 +56,6 @@ public class Program
                         options.Passphrase = configuration["LavaLinkPassword"] ?? "youshallnotpass";
                         options.Label = "Node";
                     })
-                    .AddSingleton<LavaNode>()
                     .AddSingleton<MusicEmbed>()
                     .AddSingleton<ChatSettings>()
                     .AddSingleton(client)

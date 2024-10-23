@@ -15,6 +15,12 @@ public static class Command
         public const string Description = "Disconnect from the voice channel!";
     }
     
+    public static class Clear
+    {
+        public const string Name = "clear";
+        public const string Description = "Clear the music queue!";
+    }
+    
     public static class Skip
     {
         public const string Name = "skip";
