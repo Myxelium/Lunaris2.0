@@ -31,7 +31,7 @@ jobs:
       id: package_version
       uses: KageKirin/set-csproj-version@v0
       with:
-        file: ./Bot/Lunaris2.csproj
+        file: Bot/Lunaris2.csproj
         version: ${{ steps.semver.outputs.patch }}
 
     - name: Setup .NET
