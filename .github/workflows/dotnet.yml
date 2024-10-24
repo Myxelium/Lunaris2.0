@@ -27,13 +27,6 @@ jobs:
       with:
         version: ${{ steps.previoustag.outputs.tag }}
 
-    - name: Set version
-      id: package_version
-      uses: KageKirin/set-csproj-version@v0
-      with:
-        file: Bot/Lunaris2.csproj
-        version: ${{ steps.semver.outputs.patch }}
-
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
       with:
@@ -43,7 +36,7 @@ jobs:
       run: dotnet restore ./Bot/Lunaris2.csproj
 
     - name: Build
-      run: dotnet build ./Bot/Lunaris2.csproj --no-restore -c Release -o ./out
+      run: dotnet build ./Bot/Lunaris2.csproj --no-restore -c Release /p:Version=${{ steps.previoustag.outputs.tag }} -o ./out
 
     - name: Publish
       run: dotnet publish ./Bot/Lunaris2.csproj --configuration Release --output ./out
