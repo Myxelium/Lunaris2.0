@@ -1,3 +1,4 @@
+using Discord;
 using Discord.WebSocket;
 
 namespace Lunaris2.Service
@@ -25,6 +26,30 @@ namespace Lunaris2.Service
         }
 
         private async Task CheckVoiceChannels()
+        {
+            SetStatus();
+            await LeaveOnAlone();
+        }
+        
+        private void SetStatus()
+        {
+            var channels = _client.Guilds
+                .SelectMany(guild => guild.VoiceChannels)
+                .Count(channel => 
+                    channel.ConnectedUsers
+                        .Any(guildUser => guildUser.Id == _client.CurrentUser.Id) && 
+                    channel.Users.Count > 1
+                );
+            
+            if (channels == 0)
+                _client.SetGameAsync(System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString(), type: ActivityType.CustomStatus);
+            else if(channels == 1)
+                _client.SetGameAsync("in 1 server", type: ActivityType.Playing);
+            else if(channels > 1)
+                _client.SetGameAsync($" in {channels} servers", type: ActivityType.Playing);
+        }
+
+        private async Task LeaveOnAlone()
         {
             foreach (var guild in _client.Guilds)
             {

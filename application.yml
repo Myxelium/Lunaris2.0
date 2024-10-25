@@ -49,12 +49,9 @@ plugins:
     # Clients are queried in the order they are given (so the first client is queried first and so on...)
     clients:
       - MUSIC
-      - ANDROID_TESTSUITE
       - WEB
       - TVHTML5EMBEDDED
-    #  name: # Name of the plugin
-    #    some_key: some_value # Some key-value pair for the plugin
-    #    another_key: another_value
+      - ANDROID_TESTSUITE
 lavalink:
   plugins:
       - dependency: com.github.devoxin:lavadspx-plugin:0.0.5 # replace {VERSION} with the latest version from the "Releases" tab.
