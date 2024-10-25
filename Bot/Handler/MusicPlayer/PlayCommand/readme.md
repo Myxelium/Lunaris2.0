@@ -9,72 +9,23 @@ flowchart TD
 ```
 
 ```mermaid
-classDiagram
-    class PlayHandler {
-        -MusicEmbed _musicEmbed
-        -DiscordSocketClient _client
-        -IAudioService _audioService
-        -SocketSlashCommand _context
-        -const int MaxTrackDuration
-        -LavalinkTrack? _previousTrack
-        -static HashSet~ulong~ SubscribedGuilds
-        +PlayHandler(DiscordSocketClient client, MusicEmbed musicEmbed, IAudioService audioService)
-        +Task Handle(PlayCommand command, CancellationToken cancellationToken)
-        -void PlayMusic()
-        -Task OnTrackEnded(object sender, TrackEndedEventArgs eventargs)
-        -Task OnTrackStarted(object sender, TrackStartedEventArgs eventargs)
-        -void RegisterTrackStartedEventListerner(PlayCommand command)
-        -static Task ApplyFilters(CancellationToken cancellationToken, QueuedLavalinkPlayer player)
-        -static Task ConfigureSponsorBlock(CancellationToken cancellationToken, QueuedLavalinkPlayer player)
-    }
+sequenceDiagram
+    participant User as User
+    participant DiscordSocketClient as DiscordSocketClient
+    participant MessageReceivedHandler as MessageReceivedHandler
+    participant MessageReceivedNotification as MessageReceivedNotification
+    participant EmbedBuilder as EmbedBuilder
+    participant Channel as Channel
 
-    class PlayCommand {
-        +SocketSlashCommand Message
-    }
-
-    class TrackEndedEventArgs {
-    }
-
-    class TrackStartedEventArgs {
-    }
-
-    class QueuedLavalinkPlayer {
-        +LavalinkTrack? CurrentTrack
-        +Task PlayAsync(LavalinkTrack track, CancellationToken cancellationToken)
-        +Task Queue.AddRangeAsync(List~TrackQueueItem~ queueTracks, CancellationToken cancellationToken)
-        +Task Filters.SetFilter(NormalizationFilter normalizationFilter)
-        +Task Filters.CommitAsync(CancellationToken cancellationToken)
-        +Task UpdateSponsorBlockCategoriesAsync(ImmutableArray~SegmentCategory~ categories, CancellationToken cancellationToken)
-    }
-
-    class LavalinkTrack {
-        +string Identifier
-    }
-
-    class NormalizationFilter {
-        +NormalizationFilter(double gain, bool enabled)
-    }
-
-    class SegmentCategory {
-        +static SegmentCategory Intro
-        +static SegmentCategory Sponsor
-        +static SegmentCategory SelfPromotion
-        +static SegmentCategory Outro
-        +static SegmentCategory Filler
-    }
-
-    class TrackQueueItem {
-        +TrackQueueItem(LavalinkTrack track)
-    }
-
-    PlayHandler --> PlayCommand
-    PlayHandler --> TrackEndedEventArgs
-    PlayHandler --> TrackStartedEventArgs
-    PlayHandler --> QueuedLavalinkPlayer
-    PlayHandler --> LavalinkTrack
-    PlayHandler --> NormalizationFilter
-    PlayHandler --> SegmentCategory
-    PlayHandler --> TrackQueueItem
+    User->>DiscordSocketClient: Send message "!LunarisStats"
+    DiscordSocketClient->>MessageReceivedHandler: MessageReceivedNotification
+    MessageReceivedHandler->>MessageReceivedNotification: Handle(notification, cancellationToken)
+    MessageReceivedNotification->>MessageReceivedHandler: BotMentioned(notification, cancellationToken)
+    MessageReceivedHandler->>DiscordSocketClient: Get guilds and voice channels
+    DiscordSocketClient-->>MessageReceivedHandler: List of guilds and voice channels
+    MessageReceivedHandler->>EmbedBuilder: Create embed with statistics
+    EmbedBuilder-->>MessageReceivedHandler: Embed
+    MessageReceivedHandler->>Channel: Send embed message
 ```
 
 ## Steps in the code
