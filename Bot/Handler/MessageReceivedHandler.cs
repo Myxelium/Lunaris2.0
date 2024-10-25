@@ -31,21 +31,23 @@ public class MessageReceivedHandler : INotificationHandler<MessageReceivedNotifi
             var servers = _client.Guilds.Select(guild => guild.Name);
             var channels = _client.Guilds
                 .SelectMany(guild => guild.VoiceChannels)
-                .Where(channel => channel.Users.Any(user => user.IsBot));
+                .Where(channel => channel.ConnectedUsers.Any(guildUser => guildUser.Id == _client.CurrentUser.Id) &&
+                                  channel.Users.Count != 1);
             
-            var table = new StringBuilder();
-            var serverColumnWidth = 25;  // Width for server column
-            var channelColumnWidth = 25; // Width for channel column
-            table.AppendLine($"{"Servers".PadRight(serverColumnWidth - 1)}|{"Channels".PadRight(channelColumnWidth - 1)}");
-            table.AppendLine($"{new string('-', serverColumnWidth - 1)}|{new string('-', channelColumnWidth - 1)}");
-            foreach (var (server, channel) in servers.Zip(channels))
-            {
-                table.AppendLine($"{server.PadRight(serverColumnWidth - 1)}|{channel.Name.PadRight(channelColumnWidth - 1)}");
-            }
+            var statsList = new StringBuilder();
+            statsList.AppendLine("➡️ Servers");
+            
+            foreach (var server in servers) 
+                statsList.AppendLine($"* {server}");
+            
+            statsList.AppendLine("➡️ Now playing channels: ");
+            
+            foreach (var channel in channels) 
+                statsList.AppendLine($"* {channel.Name} in {channel.Guild.Name}");
             
             var embed = new EmbedBuilder()
                 .WithTitle("Lunaris Statistics")
-                .WithDescription(table.ToString())
+                .WithDescription(statsList.ToString())
                 .Build();
             
             await notification.Message.Channel.SendMessageAsync(embed: embed);

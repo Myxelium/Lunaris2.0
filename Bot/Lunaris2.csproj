@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <UserSecretsId>ec2f340f-a44c-4869-ab79-a12ba9459d80</UserSecretsId>
+    <AssemblyVersion>0.0.1337</AssemblyVersion>
   </PropertyGroup>
 
   <!--  Lavalink4net 4.0.25 seems to break the Message Module-->

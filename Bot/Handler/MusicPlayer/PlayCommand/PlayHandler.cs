@@ -105,7 +105,7 @@ public class PlayHandler : IRequestHandler<PlayCommand>
 
                 var trackLoadOptions = new TrackLoadOptions 
                 { 
-                    SearchMode = TrackSearchMode.YouTube, 
+                    SearchMode = TrackSearchMode.YouTubeMusic, 
                 };
 
                 var trackCollection = await _audioService.Tracks.LoadTracksAsync(searchQuery, trackLoadOptions, cancellationToken: cancellationToken);
@@ -145,7 +145,7 @@ public class PlayHandler : IRequestHandler<PlayCommand>
                 else
                 {
                     // It's just a single track or a search result.
-                    var track = trackCollection.Tracks.FirstOrDefault();
+                    var track = trackCollection.Track;
     
                     if (track != null)
                     {
