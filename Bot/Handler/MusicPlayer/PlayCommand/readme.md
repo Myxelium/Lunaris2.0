@@ -10,22 +10,25 @@ flowchart TD
 
 ```mermaid
 sequenceDiagram
-    participant User as User
-    participant DiscordSocketClient as DiscordSocketClient
-    participant MessageReceivedHandler as MessageReceivedHandler
-    participant MessageReceivedNotification as MessageReceivedNotification
-    participant EmbedBuilder as EmbedBuilder
-    participant Channel as Channel
+    participant User
+    participant Bot
+    participant DiscordSocketClient
+    participant IAudioService
+    participant SocketSlashCommand
+    participant LavalinkPlayer
 
-    User->>DiscordSocketClient: Send message "!LunarisStats"
-    DiscordSocketClient->>MessageReceivedHandler: MessageReceivedNotification
-    MessageReceivedHandler->>MessageReceivedNotification: Handle(notification, cancellationToken)
-    MessageReceivedNotification->>MessageReceivedHandler: BotMentioned(notification, cancellationToken)
-    MessageReceivedHandler->>DiscordSocketClient: Get guilds and voice channels
-    DiscordSocketClient-->>MessageReceivedHandler: List of guilds and voice channels
-    MessageReceivedHandler->>EmbedBuilder: Create embed with statistics
-    EmbedBuilder-->>MessageReceivedHandler: Embed
-    MessageReceivedHandler->>Channel: Send embed message
+    User->>Bot: /play [song]
+    Bot->>DiscordSocketClient: Get user voice channel
+    DiscordSocketClient-->>Bot: Voice channel info
+    Bot->>IAudioService: Get or create player
+    IAudioService-->>Bot: Player instance
+    Bot->>SocketSlashCommand: Get search query
+    SocketSlashCommand-->>Bot: Search query
+    Bot->>IAudioService: Load tracks
+    IAudioService-->>Bot: Track collection
+    Bot->>LavalinkPlayer: Play track
+    LavalinkPlayer-->>Bot: Track started
+    Bot->>User: Now playing embed
 ```
 
 ## Steps in the code
