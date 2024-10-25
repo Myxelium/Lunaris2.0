@@ -184,4 +184,56 @@ This static class contains extension methods for various Discord and Lavalink op
   - `string optionName`: The name of the option to retrieve the value for.
 - **Returns**: `string`
 - **Description**: Retrieves the value of the specified option from the slash command. Returns an empty string if the option is not found.
-  
+
+# MessageModule
+
+The `MessageModule` class provides utility methods for sending and removing messages in a Discord guild using the Discord.Net library. It maintains a dictionary to keep track of message IDs for each guild, allowing for easy removal of messages when needed.
+
+## Methods
+
+### `SendMessageAsync(SocketSlashCommand context, string message, DiscordSocketClient client)`
+
+Sends a follow-up message with the specified text content in response to a slash command.
+
+- **Parameters:**
+  - `context`: The `SocketSlashCommand` context in which the command was executed.
+  - `message`: The text content of the message to be sent.
+  - `client`: The `DiscordSocketClient` instance.
+
+### `SendMessageAsync(SocketSlashCommand context, Embed message, DiscordSocketClient client)`
+
+Sends a follow-up message with the specified embed content in response to a slash command.
+
+- **Parameters:**
+  - `context`: The `SocketSlashCommand` context in which the command was executed.
+  - `message`: The `Embed` content of the message to be sent.
+  - `client`: The `DiscordSocketClient` instance.
+
+### `RemoveMessages(SocketSlashCommand context, DiscordSocketClient client)`
+
+Removes all tracked messages for the guild in which the command was executed.
+
+- **Parameters:**
+  - `context`: The `SocketSlashCommand` context in which the command was executed.
+  - `client`: The `DiscordSocketClient` instance.
+
+### `StoreForRemoval(SocketSlashCommand context, DiscordSocketClient client)`
+
+Stores the message ID for removal and deletes any previously tracked messages for the guild.
+
+- **Parameters:**
+  - `context`: The `SocketSlashCommand` context in which the command was executed.
+  - `client`: The `DiscordSocketClient` instance.
+
+- **Returns:**
+  - The guild ID as a `ulong`.
+
+## Usage
+
+To use the `MessageModule` class, simply call the appropriate method from your command handling logic. For example:
+
+```csharp
+await context.SendMessageAsync("Hello, world!", client);
+```
+
+This will send a follow-up message with the text "Hello, world!" in response to the slash command.
