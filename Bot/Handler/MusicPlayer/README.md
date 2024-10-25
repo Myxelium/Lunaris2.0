@@ -67,73 +67,23 @@ public class MessageReceivedHandler : INotificationHandler<MessageReceivedNotifi
 ### Class Diagram
 
 ```mermaid
-classDiagram
-    class ClearQueueHandler {
-        +Task Handle(ClearQueueCommand command, CancellationToken cancellationToken)
-    }
-    class DisconnectHandler {
-        +Task Handle(DisconnectCommand command, CancellationToken cancellationToken)
-    }
-    class PauseHandler {
-        +Task Handle(PauseCommand command, CancellationToken cancellationToken)
-    }
-    class PlayHandler {
-        +Task Handle(PlayCommand command, CancellationToken cancellationToken)
-    }
-    class ResumeHandler {
-        +Task Handle(ResumeCommand command, CancellationToken cancellationToken)
-    }
-    class SkipHandler {
-        +Task Handle(SkipCommand command, CancellationToken cancellationToken)
-    }
-    class MessageReceivedHandler {
-        +Task Handle(MessageReceivedNotification notification, CancellationToken cancellationToken)
-    }
-    class IAudioService
-    class DiscordSocketClient
-    class SocketSlashCommand
-    class CancellationToken
-    class Task
-    class IRequestHandler
-    class INotificationHandler
+sequenceDiagram
+    participant User as User
+    participant DiscordSocketClient as DiscordSocketClient
+    participant MessageReceivedHandler as MessageReceivedHandler
+    participant MessageReceivedNotification as MessageReceivedNotification
+    participant EmbedBuilder as EmbedBuilder
+    participant Channel as Channel
 
-    ClearQueueHandler ..|> IRequestHandler
-    DisconnectHandler ..|> IRequestHandler
-    PauseHandler ..|> IRequestHandler
-    PlayHandler ..|> IRequestHandler
-    ResumeHandler ..|> IRequestHandler
-    SkipHandler ..|> IRequestHandler
-    MessageReceivedHandler ..|> INotificationHandler
-    ClearQueueHandler --> IAudioService
-    DisconnectHandler --> IAudioService
-    PauseHandler --> IAudioService
-    PlayHandler --> IAudioService
-    ResumeHandler --> IAudioService
-    SkipHandler --> IAudioService
-    ClearQueueHandler --> DiscordSocketClient
-    DisconnectHandler --> DiscordSocketClient
-    PauseHandler --> DiscordSocketClient
-    PlayHandler --> DiscordSocketClient
-    ResumeHandler --> DiscordSocketClient
-    SkipHandler --> DiscordSocketClient
-    ClearQueueHandler --> SocketSlashCommand
-    DisconnectHandler --> SocketSlashCommand
-    PauseHandler --> SocketSlashCommand
-    PlayHandler --> SocketSlashCommand
-    ResumeHandler --> SocketSlashCommand
-    SkipHandler --> SocketSlashCommand
-    ClearQueueHandler --> CancellationToken
-    DisconnectHandler --> CancellationToken
-    PauseHandler --> CancellationToken
-    PlayHandler --> CancellationToken
-    ResumeHandler --> CancellationToken
-    SkipHandler --> CancellationToken
-    ClearQueueHandler --> Task
-    DisconnectHandler --> Task
-    PauseHandler --> Task
-    PlayHandler --> Task
-    ResumeHandler --> Task
-    SkipHandler --> Task
+    User->>DiscordSocketClient: Send message "!LunarisStats"
+    DiscordSocketClient->>MessageReceivedHandler: MessageReceivedNotification
+    MessageReceivedHandler->>MessageReceivedNotification: Handle(notification, cancellationToken)
+    MessageReceivedNotification->>MessageReceivedHandler: BotMentioned(notification, cancellationToken)
+    MessageReceivedHandler->>DiscordSocketClient: Get guilds and voice channels
+    DiscordSocketClient-->>MessageReceivedHandler: List of guilds and voice channels
+    MessageReceivedHandler->>EmbedBuilder: Create embed with statistics
+    EmbedBuilder-->>MessageReceivedHandler: Embed
+    MessageReceivedHandler->>Channel: Send embed message
 ```
 
 ### Sequence Diagram for PlayHandler
