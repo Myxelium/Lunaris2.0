@@ -136,4 +136,52 @@ sequenceDiagram
     end
 ```
 
-This README provides an overview of the handlers and their responsibilities, along with class and sequence diagrams to illustrate the interactions and relationships between the components.
+## Extensions.cs
+
+#### Namespaces
+- **Discord**: Provides classes for interacting with Discord.
+- **Discord.WebSocket**: Provides WebSocket-specific classes for Discord.
+- **Lavalink4NET**: Provides classes for interacting with Lavalink.
+- **Lavalink4NET.Players**: Provides player-related classes for Lavalink.
+- **Lavalink4NET.Players.Queued**: Provides queued player-related classes for Lavalink.
+- **Microsoft.Extensions.Options**: Provides classes for handling options and configurations.
+
+#### Class: `Extensions`
+This static class contains extension methods for various Discord and Lavalink operations.
+
+##### Method: `GetPlayerAsync`
+- **Parameters**:
+  - `IAudioService audioService`: The audio service to retrieve the player from.
+  - `DiscordSocketClient client`: The Discord client.
+  - `SocketSlashCommand context`: The context of the slash command.
+  - `bool connectToVoiceChannel`: Whether to connect to the voice channel (default is true).
+- **Returns**: `ValueTask<QueuedLavalinkPlayer?>`
+- **Description**: Retrieves a `QueuedLavalinkPlayer` for the given context. If the retrieval fails, it returns null and sends an appropriate error message.
+
+##### Method: `GetGuild`
+- **Parameters**:
+  - `SocketSlashCommand message`: The slash command message.
+  - `DiscordSocketClient client`: The Discord client.
+- **Returns**: `SocketGuild`
+- **Description**: Retrieves the guild associated with the given slash command message. Throws an exception if the guild ID is null.
+
+##### Method: `GetVoiceState`
+- **Parameters**:
+  - `SocketSlashCommand message`: The slash command message.
+- **Returns**: `IVoiceState`
+- **Description**: Retrieves the voice state of the user who issued the slash command. Throws an exception if the user is not connected to a voice channel.
+
+##### Method: `RespondAsync`
+- **Parameters**:
+  - `SocketSlashCommand message`: The slash command message.
+  - `string content`: The content of the response.
+- **Returns**: `Task`
+- **Description**: Sends an ephemeral response to the slash command.
+
+##### Method: `GetOptionValueByName`
+- **Parameters**:
+  - `SocketSlashCommand command`: The slash command.
+  - `string optionName`: The name of the option to retrieve the value for.
+- **Returns**: `string`
+- **Description**: Retrieves the value of the specified option from the slash command. Returns an empty string if the option is not found.
+  
