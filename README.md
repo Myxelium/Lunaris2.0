@@ -4,14 +4,14 @@
 
 Lunaris2 is a Discord bot designed to play music in your server's voice channels. It's built using C# and the Discord.Net library, and it uses the LavaLink music client for audio streaming.
 
-## Features
+## 🎮Features
 
 - Play music from YouTube directly in your Discord server.
-- Skip tracks, pause, and resume playback.
+- Skip tracks, pause, resume playback and more music related commands.
 - Queue system to line up your favorite tracks.
 - Local LLM (AI chatbot) that answers on @mentions in Discord chat. See more about it below.
 
-## Setup
+## 🤖 Setup
 
 1. Clone the repo.
 2. Extract.
@@ -29,7 +29,8 @@ The LLM is run using Ollama see more about Ollama [here](https://ollama.com/). R
 
 ## PM2 Setup
 - Install PM2 and configure it following their setup guide
-#### Lavalink
+  
+#### 🐦‍🔥 Lavalink
 * Download Lavalink 4.X.X (.jar)
 * Install Java 17
 
@@ -47,6 +48,11 @@ Register the Lunaris bot with PM2:
 
 - `/play <song>`: Plays the specified song in the voice channel you're currently in.
 - `/skip`: Skips the currently playing song.
+
+## Technical Documentations
+- [Application Layout](https://github.com/Myxelium/Lunaris2.0/blob/master/Bot/README.md)
+  * 🤖 [AI CHAT](https://github.com/Myxelium/Lunaris2.0/blob/master/Bot/Handler/ChatCommand/readme.md)
+  * 🎵 [Music Player](https://github.com/Myxelium/Lunaris2.0/tree/master/Bot/Handler/MusicPlayer)
 
 ## Contributing
 
