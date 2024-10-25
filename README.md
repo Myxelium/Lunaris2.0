@@ -1,4 +1,6 @@
-# Lunaris2 - Discord Music Bot
+![Lunaris Logotype](https://github.com/Myxelium/Lunaris2.0/blob/master/LOGOTYPE.png?raw=true)
+
+# Lunaris - Discord BOT
 
 Lunaris2 is a Discord bot designed to play music in your server's voice channels. It's built using C# and the Discord.Net library, and it uses the LavaLink music client for audio streaming.
 
