@@ -5,68 +5,65 @@ using Discord.WebSocket;
 using Lunaris2.Notification;
 using Lunaris2.Service;
 using Lunaris2.SlashCommand;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 
-namespace Lunaris2.Registration
+namespace Lunaris2.Registration;
+
+public static class DiscordBotRegistration
 {
-    public static class DiscordBotRegistration
+    public static IServiceCollection AddDiscordBot(this IServiceCollection services, IConfiguration configuration)
     {
-        public static IServiceCollection AddDiscordBot(this IServiceCollection services, IConfiguration configuration)
+        var config = new DiscordSocketConfig
         {
-            var config = new DiscordSocketConfig
-            {
-                GatewayIntents = GatewayIntents.All
-            };
+            GatewayIntents = GatewayIntents.All
+        };
 
-            var client = new DiscordSocketClient(config);
+        var client = new DiscordSocketClient(config);
 
-            services
-                .AddMediatR(mediatRServiceConfiguration =>
-                    mediatRServiceConfiguration.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()))
-                .AddMusicPlayer(configuration)
-                .AddSingleton(client)
-                .AddSingleton<DiscordEventListener>()
-                .AddSingleton(service => new InteractionService(service.GetRequiredService<DiscordSocketClient>()))
-                .AddChat(configuration);
+        services
+            .AddMediatR(mediatRServiceConfiguration =>
+                mediatRServiceConfiguration.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()))
+            .AddMusicPlayer(configuration)
+            .AddSingleton(client)
+            .AddSingleton<DiscordEventListener>()
+            .AddSingleton(service => new InteractionService(service.GetRequiredService<DiscordSocketClient>()))
+            .AddChat(configuration);
 
-            client.Ready += () => Client_Ready(client);
-            client.Log += Log;
+        client.Ready += () => Client_Ready(client);
+        client.Log += Log;
 
-            client
-                .LoginAsync(TokenType.Bot, configuration["Token"])
-                .GetAwaiter()
-                .GetResult();
+        client
+            .LoginAsync(TokenType.Bot, configuration["Token"])
+            .GetAwaiter()
+            .GetResult();
 
-            client
-                .StartAsync()
-                .GetAwaiter()
-                .GetResult();
+        client
+            .StartAsync()
+            .GetAwaiter()
+            .GetResult();
 
-            var listener = services
-                .BuildServiceProvider()
-                .GetRequiredService<DiscordEventListener>();
+        var listener = services
+            .BuildServiceProvider()
+            .GetRequiredService<DiscordEventListener>();
 
-            listener
-                .StartAsync()
-                .GetAwaiter()
-                .GetResult();
+        listener
+            .StartAsync()
+            .GetAwaiter()
+            .GetResult();
 
-            return services;
-        }
+        return services;
+    }
 
-        private static Task Client_Ready(DiscordSocketClient client)
-        {
-            client.RegisterCommands();
+    private static Task Client_Ready(DiscordSocketClient client)
+    {
+        client.RegisterCommands();
 
-            new VoiceChannelMonitorService(client).StartMonitoring();
-            return Task.CompletedTask;
-        }
+        new VoiceChannelMonitorService(client).StartMonitoring();
+        return Task.CompletedTask;
+    }
 
-        private static Task Log(LogMessage arg)
-        {
-            Console.WriteLine(arg);
-            return Task.CompletedTask;
-        }
+    private static Task Log(LogMessage arg)
+    {
+        Console.WriteLine(arg);
+        return Task.CompletedTask;
     }
 }

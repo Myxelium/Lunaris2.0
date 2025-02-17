@@ -4,6 +4,7 @@ using Lunaris2.Handler.MusicPlayer.PauseCommand;
 using Lunaris2.Handler.MusicPlayer.PlayCommand;
 using Lunaris2.Handler.MusicPlayer.ResumeCommand;
 using Lunaris2.Handler.MusicPlayer.SkipCommand;
+using Lunaris2.Handler.Scheduler;
 using Lunaris2.Notification;
 using Lunaris2.SlashCommand;
 using MediatR;
@@ -35,6 +36,9 @@ public class SlashCommandReceivedHandler(ISender mediator) : INotificationHandle
                 break;
             case Command.Clear.Name:
                 await mediator.Send(new ClearQueueCommand(notification.Message), cancellationToken);
+                break;
+            case Command.Scheduler.Name:
+                await mediator.Send(new ScheduleMessageCommand(notification.Message), cancellationToken);
                 break;
         }
     }

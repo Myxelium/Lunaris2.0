@@ -1,4 +1,4 @@
-![Lunaris Logotype](https://github.com/Myxelium/Lunaris2.0/blob/master/LOGOTYPE.png?raw=true)
+![Lunaris Logotype](./Bot/wwwroot/logotype.png)
 
 # Lunaris - Discord BOT
 

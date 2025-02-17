@@ -1,6 +1,4 @@
 using Lunaris2.Handler.ChatCommand;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Lunaris2.Registration;
 

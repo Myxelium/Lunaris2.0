@@ -1,8 +1,6 @@
 using Lavalink4NET.Extensions;
 using Lunaris2.Handler.MusicPlayer;
 using Lunaris2.Service;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Lunaris2.Registration;
 
