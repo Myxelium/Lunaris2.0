@@ -68,9 +68,9 @@ public static class Extensions
         await message.RespondAsync(content, ephemeral: true);
     }
     
-        
-    public static string GetOptionValueByName(this SocketSlashCommand command, string optionName)
+    public static T? GetOptionValueByName<T>(this SocketSlashCommand command, string optionName)
     {
-        return command.Data.Options.FirstOrDefault(option => option.Name == optionName)?.Value.ToString() ?? string.Empty;
+        return (T?)(command.Data?.Options?
+            .FirstOrDefault(option => option.Name == optionName)?.Value ?? default(T));
     }
 }

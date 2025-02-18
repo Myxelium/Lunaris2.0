@@ -85,7 +85,7 @@ public class PlayHandler : IRequestHandler<PlayCommand>
                     return;
                 }
                 
-                var searchQuery = context.GetOptionValueByName(Option.Input);
+                var searchQuery = context.GetOptionValueByName<string>(Option.Input);
 
                 if (string.IsNullOrWhiteSpace(searchQuery))
                 {

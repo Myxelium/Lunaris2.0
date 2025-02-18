@@ -1,6 +1,5 @@
 using Discord.WebSocket;
 using MediatR;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Lunaris2.Notification;
 
