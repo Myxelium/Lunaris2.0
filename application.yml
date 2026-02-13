@@ -2,6 +2,14 @@ server: # REST and WS server
   port: 2333
   address: 0.0.0.0
 plugins:
+  jellylink:
+    jellyfin:
+      baseUrl: "http://192.168.50.244:8096"
+      username: "Lunaris"
+      password: "Lunaris"
+      searchLimit: 5
+      audioQuality: "ORIGINAL"   # ORIGINAL | HIGH | MEDIUM | LOW | custom number (kbps)
+      audioCodec: "mp3"          # mp3 | aac | opus | vorbis | flac (only used when not ORIGINAL)
   lavasrc:
     providers: # Custom providers for track loading. This is the default
       # - "dzisrc:%ISRC%" # Deezer ISRC provider
