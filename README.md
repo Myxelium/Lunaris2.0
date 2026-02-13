@@ -54,6 +54,6 @@ Register the Lunaris bot with PM2:
   * 🤖 [AI CHAT](https://github.com/Myxelium/Lunaris2.0/blob/master/Bot/Handler/ChatCommand/readme.md)
   * 🎵 [Music Player](https://github.com/Myxelium/Lunaris2.0/tree/master/Bot/Handler/MusicPlayer)
 
-## Contributing
+## Contributing 🐈
 
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
