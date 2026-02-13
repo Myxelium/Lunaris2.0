@@ -31,6 +31,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\Lavalink4NET.Jellyfin\Lavalink4NET.Jellyfin\Lavalink4NET.Jellyfin.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="../docker-compose.yml" pack="true" PackagePath="." />
     <None Include="../application.yml" pack="true" PackagePath="." />
     <None Include="../start-services.sh" pack="true" PackagePath="." />
