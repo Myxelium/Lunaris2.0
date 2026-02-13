@@ -28,10 +28,7 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
     <PackageReference Include="OllamaSharp" Version="1.1.10" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\Lavalink4NET.Jellyfin\Lavalink4NET.Jellyfin\Lavalink4NET.Jellyfin.csproj" />
+    <PackageReference Include="Lavalink4NET.Jellyfin" Version="1.0.0" />
   </ItemGroup>
 
   <ItemGroup>
