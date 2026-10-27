@@ -3,7 +3,9 @@ using Discord.WebSocket;
 using Lunaris2.Handler.MusicPlayer;
 using Lunaris2.Notification;
 using Lunaris2.SlashCommand;
+using Lunaris2.Handler.Scheduler;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 
 namespace Lunaris2;
 
@@ -11,7 +13,8 @@ public sealed class DiscordClientHostedService(
     DiscordSocketClient client,
     DiscordSettings settings,
     DiscordEventListener listener,
-    PlaybackNotifier playbackNotifier) : IHostedService
+    PlaybackNotifier playbackNotifier,
+    IOptions<SchedulerSettings> scheduler) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -39,7 +42,7 @@ public sealed class DiscordClientHostedService(
 
     private Task OnReady()
     {
-        client.RegisterCommands();
+        client.RegisterCommands(scheduler.Value.Enabled);
         return Task.CompletedTask;
     }
 }

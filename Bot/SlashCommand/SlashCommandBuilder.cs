@@ -8,7 +8,8 @@ namespace Lunaris2.SlashCommand;
 public class SlashCommandBuilder(
     string commandName, 
     string commandDescription, 
-    List<SlashCommandOptionBuilder>? commandOptions = null)
+    List<SlashCommandOptionBuilder>? commandOptions = null,
+    string[]? retainedCommands = null)
 {
     private string CommandName { get; set; } = commandName;
     private string CommandDescription { get; set; } = commandDescription;
@@ -17,10 +18,17 @@ public class SlashCommandBuilder(
     public async Task CreateSlashCommand(DiscordSocketClient client)
     {
         var registeredCommands = await client.GetGlobalApplicationCommandsAsync();
-        await RemoveUnusedCommands(Command.GetAllCommands(), registeredCommands);
-        
-        if (await CommandExists(registeredCommands))
+        await RemoveUnusedCommands(retainedCommands ?? Command.GetAllCommands(), registeredCommands);
+
+        var existing = registeredCommands.FirstOrDefault(command => command.Name == CommandName);
+        if (existing is not null && SameShape(existing))
+        {
+            Console.WriteLine($"Command {CommandName} already exists.");
             return;
+        }
+
+        if (existing is not null)
+            await DeleteCommand(existing);
 
         var globalCommand = new Discord.SlashCommandBuilder();
         globalCommand.WithName(CommandName);
@@ -40,24 +48,37 @@ public class SlashCommandBuilder(
         }
     }
 
+    private bool SameShape(SocketApplicationCommand existing)
+    {
+        if (existing.Description != CommandDescription)
+            return false;
+
+        var expected = (CommandOptions ?? []).Select(option => option.Name).OrderBy(name => name);
+        var actual = (existing.Options ?? []).Select(option => option.Name).OrderBy(name => name);
+        return expected.SequenceEqual(actual);
+    }
+
     private static async Task RemoveUnusedCommands(string[] commands, IEnumerable<SocketApplicationCommand> registeredCommands)
     {
         foreach(var command in registeredCommands)
         {
             if (commands.Contains(command.Name)) 
                 continue;
-            
+
+            await DeleteCommand(command);
+        }
+    }
+
+    private static async Task DeleteCommand(SocketApplicationCommand command)
+    {
+        try
+        {
             await command.DeleteAsync();
             Console.WriteLine($"Command {command.Name} has been removed.");
         }
-    }
-    
-    private Task<bool> CommandExists(IEnumerable<SocketApplicationCommand> registeredCommands)
-    {
-        if (!registeredCommands.Any(command => command.Name == CommandName && command.Description == CommandDescription))
-            return Task.FromResult(false);
-        
-        Console.WriteLine($"Command {CommandName} already exists.");
-        return Task.FromResult(true);
+        catch (HttpException exception)
+        {
+            Console.WriteLine($"Command {command.Name} could not be removed: {exception.Message}");
+        }
     }
 }
