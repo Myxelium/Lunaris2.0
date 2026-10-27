@@ -1,137 +1,205 @@
 using System.Globalization;
 using System.Text;
 using Discord.WebSocket;
-using Hangfire;
 using Lunaris2.Handler.ChatCommand;
 using Lunaris2.Handler.MusicPlayer;
 using Lunaris2.SlashCommand;
 using MediatR;
 using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
-using NCrontab;
 using OllamaSharp;
-using static System.DateTime;
 
 namespace Lunaris2.Handler.Scheduler;
 
 public record ScheduleMessageCommand(SocketSlashCommand Message) : IRequest;
 
-public class ScheduleMessageHandler : IRequestHandler<ScheduleMessageCommand>
+public sealed class ScheduleMessageHandler(
+    IOptions<SchedulerSettings> schedulerSettings,
+    IOptions<ChatSettings> chatSettings,
+    IMessageScheduler scheduler) : IRequestHandler<ScheduleMessageCommand>
 {
-    private readonly ChatSettings _chatSettings;
-    private readonly OllamaApiClient _ollama;
-    private readonly ISender _mediator;
-
-    private readonly string _cronInstruction = "You are only able to respond in CRON Format. " +
-                                              "Current time is: " + Now.ToString("yyyy-MM-dd HH:mm") + ". and it is " +
-                                              Now.DayOfWeek + ". " +
-                                              "Please use the a format parsable by ncrontab." +
-                                              "The user will describe the CRON format and you can only answer with the CRON format the user describes.";
-    
-    private readonly string _dateInstruction = "You are only able to respond in Date Format. " +
-                                               "Current time is: " + Now.ToString("dd/MM/yyyy HH:mm:ss") + ". and it is " +
-                                               Now.DayOfWeek + ". " +
-                                               "Please use the following format: dd/MM/yyyy HH:mm:ss. Convert following to date string with the current time as a context";
-    
-    public ScheduleMessageHandler(
-        IOptions<ChatSettings> chatSettings, 
-        ISender mediator)
-    {
-        _mediator = mediator;
-        _chatSettings = chatSettings.Value;
-
-        var uri = new Uri(_chatSettings.Url);
-        _ollama = new OllamaApiClient(uri)
-        {
-            SelectedModel = _chatSettings.Model
-        };
-    }
+    private const int ModelAttempts = 3;
 
     public async Task Handle(ScheduleMessageCommand request, CancellationToken cancellationToken)
     {
-        var userDateInput = request.Message.GetOptionValueByName<string>(Option.Time);
-        var userMessage = request.Message.GetOptionValueByName<string>(Option.Message);
-        var recurring = request.Message.GetOptionValueByName<bool>(Option.IsRecurring);
-
-        if (recurring)
+        var command = request.Message;
+        var settings = schedulerSettings.Value;
+        if (!settings.Enabled)
         {
-            await ScheduleRecurringJob(request, userMessage, userDateInput, cancellationToken);
+            await Reply(command, "Scheduling is turned off. Set Scheduler:Enabled to true in appsettings.json and restart the bot.");
+            return;
         }
-        else
+
+        var content = command.GetOptionValueByName(Option.Message);
+        var whenText = command.GetOptionValueByName(Option.Time);
+        if (string.IsNullOrWhiteSpace(content))
         {
-            await ScheduleJob(request, userMessage, userDateInput, cancellationToken);
-            
-            await request.Message.Channel.SendMessageAsync("Message scheduled successfully.");
+            await Reply(command, "Tell me what the message should say.");
+            return;
+        }
+
+        if (content.Length > 2000)
+        {
+            await Reply(command, "That message is too long. Discord messages can be at most 2000 characters.");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(whenText))
+        {
+            await Reply(command, "Tell me when to send it.");
+            return;
+        }
+
+        var channelId = command.ChannelId ?? command.Channel?.Id;
+        if (channelId is null or 0)
+        {
+            await Reply(command, "I can only schedule messages in a channel.");
+            return;
+        }
+
+        try
+        {
+            var zone = settings.ResolveTimeZone();
+            if (IsRepeating(command))
+                await ScheduleRecurring(command, zone, channelId.Value, content, whenText, cancellationToken);
+            else
+                await ScheduleOnce(command, zone, channelId.Value, content, whenText, cancellationToken);
+        }
+        catch (Exception error)
+        {
+            Console.WriteLine(error);
+            try
+            {
+                await Reply(command, "I couldn't schedule that message.");
+            }
+            catch (Exception respondError)
+            {
+                Console.WriteLine(respondError);
+            }
         }
     }
 
-    private async Task ScheduleRecurringJob(
-        ScheduleMessageCommand request,
-        string message,
-        string userDateInput,
+    private async Task ScheduleOnce(
+        SocketSlashCommand command,
+        TimeZoneInfo zone,
+        ulong channelId,
+        string content,
+        string whenText,
         CancellationToken cancellationToken)
     {
-        using var setTyping = request.Message.Channel.EnterTypingState();
-        var cron = string.Empty;
-        var jobManager = new RecurringJobManager();
-        const int retries = 5;
-        var userMessage = $"{_cronInstruction}: {userDateInput}";
-        
-        for (var tries = 0; tries < retries; tries++)
+        if (!ScheduleInput.TryGetInstant(whenText, zone, out var instant))
         {
-            var textToCronResponse = await GenerateResponse(userMessage, cancellationToken);
-            var isValid = CrontabSchedule.TryParse(textToCronResponse).ToString().IsNullOrEmpty();
-            
-            if(isValid)
+            var generated = await AskUntil(DateInstruction(zone), whenText, text => ScheduleInput.TryGetInstant(text, zone, out _), cancellationToken);
+            if (generated is null || !ScheduleInput.TryGetInstant(generated, zone, out instant))
             {
-                await request.Message.Channel.SendMessageAsync("Sorry, I didn't understand that date format. Please try again.");
-                continue;
+                await Reply(command, UnreadableTimeMessage());
+                return;
             }
-            
-            cron = textToCronResponse;
-                
-            break;
         }
-        var recurringJobId = $"channel_{request.Message.ChannelId}_{request.Message.Id}";
 
-        jobManager.AddOrUpdate(
-            recurringJobId,
-            () => _mediator.Send(new ProcessMessageCommand { Context = request.Message.ChannelId, Content = message}, cancellationToken),
-            cron
-        );
-            
-        setTyping.Dispose();
-        await request.Message.Channel.SendMessageAsync("Message scheduled successfully.");
+        if (!ScheduleInput.TryGetDelay(instant, DateTimeOffset.UtcNow, out var delay, out _))
+        {
+            await Reply(command, "That time has already passed.");
+            return;
+        }
+
+        scheduler.ScheduleOnce(channelId, content, delay);
+        var local = TimeZoneInfo.ConvertTime(instant, zone);
+        await Reply(command, $"Message scheduled for {local.ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture)} ({zone.Id}).");
     }
 
-    private async Task ScheduleJob(
-        ScheduleMessageCommand request,
-        string userMessage,
-        string executeAt,
-        CancellationToken cancellationToken
-    )
+    private async Task ScheduleRecurring(
+        SocketSlashCommand command,
+        TimeZoneInfo zone,
+        ulong channelId,
+        string content,
+        string whenText,
+        CancellationToken cancellationToken)
     {
-        var dateFormat = $"{_dateInstruction}: {executeAt}";
+        if (!ScheduleInput.TryGetCron(whenText, out var cron))
+        {
+            var generated = await AskUntil(CronInstruction(zone), whenText, text => ScheduleInput.TryGetCron(text, out _), cancellationToken);
+            if (generated is null || !ScheduleInput.TryGetCron(generated, out cron))
+            {
+                await Reply(command, UnreadableCronMessage());
+                return;
+            }
+        }
 
-        var formattedDate = await GenerateResponse(dateFormat, cancellationToken);
-        
-        var date = ParseExact(formattedDate, "dd/MM/yyyy HH:mm:ss", CultureInfo.CurrentCulture);
-
-        BackgroundJob.Schedule(
-            () => _mediator.Send(
-                new ProcessMessageCommand { Context = request.Message.ChannelId, Content = userMessage },
-                cancellationToken),
-            date);
+        var jobId = $"lunaris-{channelId}-{command.Id}";
+        scheduler.ScheduleRecurring(jobId, channelId, content, cron, zone);
+        await Reply(command, $"Repeating message scheduled ({cron}, {zone.Id}).");
     }
 
-    private async Task<string> GenerateResponse(string userMessage, CancellationToken cancellationToken)
+    private string UnreadableTimeMessage() =>
+        IsModelConfigured()
+            ? "I couldn't read that time. Use a timestamp like 27/10/2026 18:00:00."
+            : "I couldn't read that time. Use a timestamp like 27/10/2026 18:00:00, or set LLM:Url and LLM:Model so I can interpret it.";
+
+    private string UnreadableCronMessage() =>
+        IsModelConfigured()
+            ? "I couldn't read that schedule. Use a cron expression like 0 9 * * 1."
+            : "I couldn't read that schedule. Use a cron expression like 0 9 * * 1, or set LLM:Url and LLM:Model so I can interpret it.";
+
+    private bool IsModelConfigured()
     {
-        var response = new StringBuilder();
-
-        var chatContext = _ollama.Chat(stream => response.Append(stream.Message?.Content ?? ""));
-        
-        await chatContext.Send(userMessage, cancellationToken);
-        
-        return response.ToString();
+        var settings = chatSettings.Value;
+        return !string.IsNullOrWhiteSpace(settings.Url) && !string.IsNullOrWhiteSpace(settings.Model);
     }
+
+    private static string DateInstruction(TimeZoneInfo zone)
+    {
+        var now = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zone);
+        return "You convert a time description into one timestamp. " +
+               $"Current time is {now.ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture)} ({now.DayOfWeek}) in {zone.Id}. " +
+               "Reply with only dd/MM/yyyy HH:mm:ss. No explanation.";
+    }
+
+    private static string CronInstruction(TimeZoneInfo zone)
+    {
+        var now = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zone);
+        return "You convert a schedule description into a 5-field cron expression. " +
+               $"Current time is {now.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)} ({now.DayOfWeek}) in {zone.Id}. " +
+               "Reply with only the cron expression, for example 0 9 * * 1. No explanation.";
+    }
+
+    private async Task<string?> AskUntil(string instruction, string userText, Func<string, bool> accept, CancellationToken cancellationToken)
+    {
+        if (!IsModelConfigured())
+            return null;
+
+        try
+        {
+            var settings = chatSettings.Value;
+            using var client = new OllamaApiClient(settings.Url, settings.Model);
+            var chat = new Chat(client);
+            var prompt = instruction + "\n" + userText;
+            for (var attempt = 0; attempt < ModelAttempts; attempt++)
+            {
+                var response = new StringBuilder();
+                await foreach (var token in chat.SendAsync(prompt, cancellationToken))
+                    response.Append(token);
+
+                var text = response.ToString();
+                if (accept(text))
+                    return text;
+
+                prompt = "That was not valid. Reply with only the requested value and nothing else.";
+            }
+        }
+        catch (Exception error)
+        {
+            Console.WriteLine(error);
+        }
+
+        return null;
+    }
+
+    private static bool IsRepeating(SocketSlashCommand command)
+    {
+        var value = command.Data.Options.FirstOrDefault(option => option.Name == Option.IsRecurring)?.Value;
+        return value is bool repeating && repeating;
+    }
+
+    private static Task Reply(SocketSlashCommand command, string content) =>
+        command.ModifyOriginalResponseAsync(properties => properties.Content = content);
 }

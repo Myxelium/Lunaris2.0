@@ -5,9 +5,9 @@ namespace Lunaris2.SlashCommand;
 public static class Option
 {
     public const string Input = "input";
+    public const string Message = "message";
     public const string Time = "time";
     public const string IsRecurring = "repeating";
-    public const string Message = "message";
 }
 
 public static class Command
@@ -58,37 +58,36 @@ public static class Command
             },
         };
     }
-    
+
     public static class Scheduler
     {
         public const string Name = "scheduler";
         public const string Description = "Schedule a message";
-        
-        public static readonly List<SlashCommandOptionBuilder>? Options =
-        [
+
+        public static readonly List<SlashCommandOptionBuilder>? Options = new()
+        {
             new SlashCommandOptionBuilder
             {
-                Name = "message",
+                Name = Option.Message,
                 Description = "The message you want to schedule",
                 Type = ApplicationCommandOptionType.String,
                 IsRequired = true
             },
             new SlashCommandOptionBuilder
             {
-                Name = "time",
-                Description = "The time you want to schedule the message",
+                Name = Option.Time,
+                Description = "When to send it, as a time or a cron expression",
                 Type = ApplicationCommandOptionType.String,
                 IsRequired = true
             },
             new SlashCommandOptionBuilder
             {
-                Name = "repeating",
-                Description = "Whether the message should repeat",
+                Name = Option.IsRecurring,
+                Description = "Send the message on a repeating schedule",
                 Type = ApplicationCommandOptionType.Boolean,
-                IsRequired = false,
-                IsDefault = false
+                IsRequired = false
             }
-        ];
+        };
     }
     
     public static string[] GetAllCommands()

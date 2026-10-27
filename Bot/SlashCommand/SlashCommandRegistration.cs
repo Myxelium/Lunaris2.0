@@ -5,25 +5,36 @@ namespace Lunaris2.SlashCommand;
 
 public static class SlashCommandRegistration
 {
-    public static void RegisterCommands(this DiscordSocketClient client)
+    public static void RegisterCommands(this DiscordSocketClient client, bool schedulerEnabled = false)
     {
-        RegisterCommand(client, Command.Resume.Name, Command.Resume.Description);
-        RegisterCommand(client, Command.Pause.Name, Command.Pause.Description);
-        RegisterCommand(client, Command.Disconnect.Name, Command.Disconnect.Description);
-        RegisterCommand(client, Command.Skip.Name, Command.Skip.Description);
-        RegisterCommand(client, Command.Play.Name, Command.Play.Description, Command.Play.Options);
-        RegisterCommand(client, Command.Resume.Name, Command.Resume.Description);
-        RegisterCommand(client, Command.Clear.Name, Command.Clear.Description);
-        RegisterCommand(client, Command.Scheduler.Name, Command.Scheduler.Description, Command.Scheduler.Options);
+        var retained = RetainedCommandNames(schedulerEnabled);
+        RegisterCommand(client, retained, Command.Resume.Name, Command.Resume.Description);
+        RegisterCommand(client, retained, Command.Pause.Name, Command.Pause.Description);
+        RegisterCommand(client, retained, Command.Disconnect.Name, Command.Disconnect.Description);
+        RegisterCommand(client, retained, Command.Skip.Name, Command.Skip.Description);
+        RegisterCommand(client, retained, Command.Play.Name, Command.Play.Description, Command.Play.Options);
+        RegisterCommand(client, retained, Command.Resume.Name, Command.Resume.Description);
+        RegisterCommand(client, retained, Command.Clear.Name, Command.Clear.Description);
+        if (schedulerEnabled)
+            RegisterCommand(client, retained, Command.Scheduler.Name, Command.Scheduler.Description, Command.Scheduler.Options);
+    }
+
+    public static string[] RetainedCommandNames(bool schedulerEnabled)
+    {
+        return Command.GetAllCommands()
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Where(name => schedulerEnabled || !string.Equals(name, Command.Scheduler.Name, StringComparison.Ordinal))
+            .ToArray();
     }
 
     private static void RegisterCommand(
-        DiscordSocketClient client, 
+        DiscordSocketClient client,
+        string[] retainedCommands,
         string commandName, 
         string commandDescription, 
         List<SlashCommandOptionBuilder>? commandOptions = null)
     {
-        var command = new SlashCommandBuilder(commandName, commandDescription, commandOptions);
+        var command = new SlashCommandBuilder(commandName, commandDescription, commandOptions, retainedCommands);
         _ = command.CreateSlashCommand(client);
     }
 }

@@ -2,66 +2,60 @@ using System.Text;
 using Discord.WebSocket;
 using MediatR;
 using Microsoft.Extensions.Options;
-using OllamaSharp;
 
-namespace Lunaris2.Handler.ChatCommand;
-
-public record ChatCommand(SocketMessage Message, string FilteredMessage) : IRequest;
-
-public class ChatHandler : IRequestHandler<ChatCommand>
+namespace Lunaris2.Handler.ChatCommand
 {
-    private readonly OllamaApiClient _ollama;
-    private readonly Dictionary<ulong, Chat?> _chatContexts = new();
-    private readonly ChatSettings _chatSettings;
+    public record ChatCommand(SocketMessage Message, string FilteredMessage) : IRequest;
 
-    public ChatHandler(IOptions<ChatSettings> chatSettings)
+    public class ChatHandler : IRequestHandler<ChatCommand>
     {
-        _chatSettings = chatSettings.Value;
-        var uri = new Uri(chatSettings.Value.Url);
-            
-        _ollama = new OllamaApiClient(uri)
+        private readonly ChatSessionStore _sessions;
+        private readonly ChatSettings _chatSettings;
+        private readonly Random _random = new();
+
+        public ChatHandler(IOptions<ChatSettings> chatSettings, ChatSessionStore sessions)
         {
-            SelectedModel = chatSettings.Value.Model
-        };
-    }
-        
-    public async Task Handle(ChatCommand command, CancellationToken cancellationToken)
-    {
-        var channelId = command.Message.Channel.Id;
-        _chatContexts.TryAdd(channelId, null);
-
-        var userMessage = command.FilteredMessage;
-
-        var randomPersonality = _chatSettings.Personalities[new Random().Next(_chatSettings.Personalities.Count)];
-
-        userMessage = $"{randomPersonality.Instruction} {userMessage}";
-            
-        using var setTyping = command.Message.Channel.EnterTypingState();
-            
-        if (string.IsNullOrWhiteSpace(userMessage))
-        {
-            await command.Message.Channel.SendMessageAsync("Am I expected to read your mind?");
-            setTyping.Dispose();
-            return;
-        }
-            
-        var response = await GenerateResponse(userMessage, channelId, cancellationToken);
-        await command.Message.Channel.SendMessageAsync(response);
-            
-        setTyping.Dispose();
-    }
-
-    private async Task<string> GenerateResponse(string userMessage, ulong channelId, CancellationToken cancellationToken)
-    {
-        var response = new StringBuilder();
-
-        if (_chatContexts[channelId] == null)
-        {
-            _chatContexts[channelId] = _ollama.Chat(stream => response.Append(stream.Message?.Content ?? ""));
+            _chatSettings = chatSettings.Value;
+            _sessions = sessions;
         }
 
-        await _chatContexts[channelId].Send(userMessage, cancellationToken);
+        public async Task Handle(ChatCommand command, CancellationToken cancellationToken)
+        {
+            var channel = command.Message.Channel;
+            using var setTyping = channel.EnterTypingState();
 
-        return response.ToString();
+            if (string.IsNullOrWhiteSpace(command.FilteredMessage))
+            {
+                await channel.SendMessageAsync("Am I expected to read your mind?");
+                return;
+            }
+
+            var userMessage = command.FilteredMessage;
+            if (_chatSettings.Personalities is { Count: > 0 })
+            {
+                var personality = _chatSettings.Personalities[_random.Next(_chatSettings.Personalities.Count)];
+                userMessage = $"{personality.Instruction} {userMessage}";
+            }
+
+            var response = await GenerateResponse(userMessage, channel.Id, cancellationToken);
+            if (response.Length > 2000)
+                response = response[..1997] + "...";
+
+            if (string.IsNullOrWhiteSpace(response))
+                response = "I don't have an answer for that.";
+
+            await channel.SendMessageAsync(response);
+        }
+
+        private async Task<string> GenerateResponse(string userMessage, ulong channelId, CancellationToken cancellationToken)
+        {
+            var response = new StringBuilder();
+            var chat = _sessions.GetOrCreate(channelId);
+
+            await foreach (var token in chat.SendAsync(userMessage, cancellationToken))
+                response.Append(token);
+
+            return response.ToString();
+        }
     }
 }

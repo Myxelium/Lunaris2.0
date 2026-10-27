@@ -1,11 +1,13 @@
 using System.Collections.Immutable;
+using Discord;
 using Discord.WebSocket;
 using Lunaris2.SlashCommand;
 using MediatR;
 using Lavalink4NET;
-using Lavalink4NET.Events.Players;
 using Lavalink4NET.Integrations.SponsorBlock;
 using Lavalink4NET.Integrations.SponsorBlock.Extensions;
+using Lavalink4NET.Jellyfin;
+using Lavalink4NET.Players;
 using Lavalink4NET.Players.Queued;
 using Lavalink4NET.Rest.Entities.Tracks;
 using Lavalink4NET.Tracks;
@@ -19,178 +21,168 @@ public class PlayHandler : IRequestHandler<PlayCommand>
     private readonly MusicEmbed _musicEmbed;
     private readonly DiscordSocketClient _client;
     private readonly IAudioService _audioService;
-    private SocketSlashCommand _context;
-    private const int MaxTrackDuration = 30;
-    private LavalinkTrack? _previousTrack;
-    private static readonly HashSet<ulong> SubscribedGuilds = new();
-    
+    private readonly PlaybackNotifier _playbackNotifier;
+
     public PlayHandler(
-        DiscordSocketClient client, 
-        MusicEmbed musicEmbed, 
-        IAudioService audioService)
+        DiscordSocketClient client,
+        MusicEmbed musicEmbed,
+        IAudioService audioService,
+        PlaybackNotifier playbackNotifier)
     {
         _client = client;
         _musicEmbed = musicEmbed;
         _audioService = audioService;
+        _playbackNotifier = playbackNotifier;
     }
-    
-    private async Task OnTrackEnded(object sender, TrackEndedEventArgs eventargs)
+
+    public async Task Handle(PlayCommand command, CancellationToken cancellationToken)
     {
-        // Reset the previous track when the track ends.
-        _previousTrack = null;
-    }
-    
-    private async Task OnTrackStarted(object sender, TrackStartedEventArgs eventargs)
-    {
-        var player = sender as QueuedLavalinkPlayer;
+        var context = command.Message;
 
-        if (player?.CurrentTrack is null)
+        try
         {
-            return; // No track is currently playing.
-        }
-
-        var currentTrack = player.CurrentTrack;
-
-        // Check if the current track is the same as the previous one
-        if (_previousTrack?.Identifier == currentTrack.Identifier)
-        {
-            // The same track is playing, so we don't need to create a new embed.
-            return;
-        }
-
-        // Track has changed, update the previous track and send the embed
-        _previousTrack = currentTrack;
-        await _musicEmbed.NowPlayingEmbed(currentTrack, _context, _client);
-    }
-    
-    public Task Handle(PlayCommand command, CancellationToken cancellationToken)
-    {
-        new Thread(PlayMusic).Start();
-        return Task.CompletedTask;
-
-        async void PlayMusic()
-        {
-            try
+            if (context.GuildId is not ulong guildId)
             {
-                RegisterTrackStartedEventListerner(command);
-                
-                await _audioService.StartAsync(cancellationToken);
-                
-                var context = command.Message;
-                _context = context;
-                
-                if ((context.User as SocketGuildUser)?.VoiceChannel == null)
-                {
-                    await context.SendMessageAsync("You must be in a voice channel to use this command.", _client);
-                    return;
-                }
-                
-                var searchQuery = context.GetOptionValueByName<string>(Option.Input);
-
-                if (string.IsNullOrWhiteSpace(searchQuery))
-                {
-                    await context.SendMessageAsync("Please provide search terms.", _client);
-                    return;
-                }
-                
-                await context.SendMessageAsync("📻 Searching...", _client);
-                
-                var player = await _audioService.GetPlayerAsync(_client, context, connectToVoiceChannel: true);
-                
-                if (player is null) 
-                    return;
-                
-                await ApplyFilters(cancellationToken, player);
-                await ConfigureSponsorBlock(cancellationToken, player);
-
-                var trackLoadOptions = new TrackLoadOptions 
-                { 
-                    SearchMode = TrackSearchMode.YouTubeMusic, 
-                };
-
-                var trackCollection = await _audioService.Tracks.LoadTracksAsync(searchQuery, trackLoadOptions, cancellationToken: cancellationToken);
-
-                // Check if the result is a playlist or just a single track from the search result
-                if (trackCollection.IsPlaylist)
-                {
-                    // If it's a playlist, check if it's a free-text input.
-                    if (!Uri.IsWellFormedUriString(searchQuery, UriKind.Absolute))
-                    {
-                        // Free text was used (not a direct URL to a playlist), let's prevent queueing the whole playlist.
-                        // Queue only the first track of the search result
-                        // var firstTrack = trackCollection.Tracks.FirstOrDefault();
-                        if (trackCollection.Track != null)
-                        {
-                            await player.PlayAsync(trackCollection.Track, cancellationToken: cancellationToken).ConfigureAwait(false);
-                            await _musicEmbed.NowPlayingEmbed(trackCollection.Track, _context, _client);
-                        }
-                        else
-                        {
-                            await context.SendMessageAsync("No tracks found.", _client);
-                        }
-                    }
-                    else
-                    {
-                        // It's a playlist and a URL was used, so we can queue all tracks as usual
-                        var queueTracks = trackCollection.Tracks
-                            .Skip(1)
-                            .Select(t => new TrackQueueItem(t))
-                            .ToList();
-                        
-                        await player.PlayAsync(trackCollection.Tracks.First(), cancellationToken: cancellationToken).ConfigureAwait(false);
-                        await player.Queue.AddRangeAsync(queueTracks, cancellationToken);
-                        await context.SendMessageAsync($"Queued playlist {trackCollection.Playlist?.Name} with {queueTracks.Count} tracks.", _client);
-                    }
-                }
-                else
-                {
-                    // It's just a single track or a search result.
-                    var track = trackCollection.Track;
-    
-                    if (track != null)
-                    {
-                        await player.PlayAsync(track, cancellationToken: cancellationToken).ConfigureAwait(false);
-                        await _musicEmbed.NowPlayingEmbed(track, _context, _client);
-                    }
-                    else
-                    {
-                        await context.SendMessageAsync("No tracks found.", _client);
-                    }
-                }
+                await ShowAsync(context, "This command only works in a server.");
+                return;
             }
-            catch (Exception error)
+
+            if ((context.User as SocketGuildUser)?.VoiceChannel == null)
             {
-                throw new Exception("Error occured in the Play handler!", error);
+                await ShowAsync(context, "You must be in a voice channel to use this command.");
+                return;
             }
+
+            var searchQuery = context.GetOptionValueByName(Option.Input);
+            if (string.IsNullOrWhiteSpace(searchQuery))
+            {
+                await ShowAsync(context, "Please provide search terms.");
+                return;
+            }
+
+            await _audioService.StartAsync(cancellationToken);
+            await ShowAsync(context, "Searching...");
+            if (context.Channel is not null)
+                _playbackNotifier.Remember(guildId, context.Channel, context.User.Username, playlistNote: null);
+
+            var retrieval = await _audioService.GetPlayerAsync(_client, context, PlayerChannelBehavior.Move);
+            if (retrieval.Player is null)
+            {
+                await ShowAsync(context, retrieval.Error ?? "Couldn't connect to the voice channel.");
+                return;
+            }
+
+            var player = retrieval.Player;
+            await TryApplyPlaybackOptions(cancellationToken, player);
+
+            var (searchMode, queryToSearch) = SearchQueryParser.Parse(searchQuery, JellyfinSearchMode.Jellyfin);
+            var trackLoadOptions = new TrackLoadOptions { SearchMode = searchMode };
+            var trackCollection = await _audioService.Tracks.LoadTracksAsync(
+                queryToSearch,
+                trackLoadOptions,
+                cancellationToken: cancellationToken);
+
+            if (trackCollection.IsFailed || trackCollection.Tracks.IsDefaultOrEmpty)
+            {
+                var reason = trackCollection.Exception?.Message;
+                await ShowAsync(context, string.IsNullOrWhiteSpace(reason) ? "No tracks found." : $"No tracks found. {reason}");
+                return;
+            }
+
+            var tracks = trackCollection.Tracks;
+            var isUrl = Uri.IsWellFormedUriString(searchQuery, UriKind.Absolute);
+            var plan = PlaybackPlanner.Plan(trackCollection.IsPlaylist, isUrl, tracks.Length, trackCollection.Playlist?.Name);
+            var selected = tracks.Take(plan.TrackCount).ToArray();
+            if (selected.Length == 0)
+            {
+                await ShowAsync(context, "No tracks found.");
+                return;
+            }
+
+            var playlistNote = PlaybackPlanner.PlaylistNote(plan);
+            if (context.Channel is not null)
+                _playbackNotifier.Remember(guildId, context.Channel, context.User.Username, playlistNote);
+
+            var position = await player.PlayAsync(selected[0], cancellationToken: cancellationToken).ConfigureAwait(false);
+            if (selected.Length > 1)
+            {
+                var queued = selected.Skip(1).Select(track => new TrackQueueItem(track)).ToList();
+                await player.Queue.AddRangeAsync(queued, cancellationToken);
+            }
+
+            if (position > 0 && plan.IsPlaylist)
+            {
+                await ShowAsync(context, PlaybackPlanner.PlaylistQueuedMessage(plan.PlaylistName, plan.TrackCount));
+                return;
+            }
+
+            if (position > 0)
+            {
+                await ShowAsync(context, PlaybackPlanner.QueuedTrackMessage(position, selected[0].Title));
+                return;
+            }
+
+            var upcoming = player.Queue.Count == 0
+                ? Array.Empty<string?>()
+                : new[] { player.Queue[0].Track?.Title };
+            var nextTitle = PlaybackPlanner.NextQueuedTitle(upcoming);
+            var embed = _musicEmbed.BuildNowPlaying(selected[0], context.User.Username, nextTitle, playlistNote);
+            await ShowAsync(context, "Now playing", embed);
+        }
+        catch (Exception error)
+        {
+            Console.WriteLine(error);
+            await ShowAsync(context, "Something went wrong while trying to play that.");
         }
     }
 
-    private void RegisterTrackStartedEventListerner(PlayCommand command)
+    private static async Task TryApplyPlaybackOptions(CancellationToken cancellationToken, QueuedLavalinkPlayer player)
     {
-        if (SubscribedGuilds.Contains((ulong)command.Message.GuildId!)) 
+        if (player.State is not PlayerState.NotPlaying)
             return;
-        
-        _audioService.TrackStarted += OnTrackStarted;
-        _audioService.TrackEnded += OnTrackEnded;
-        SubscribedGuilds.Add((ulong)command.Message.GuildId!);
+
+        try
+        {
+            player.Filters.SetFilter(new NormalizationFilter(0.5, true));
+            await player.Filters.CommitAsync(cancellationToken);
+        }
+        catch (Exception error)
+        {
+            Console.WriteLine($"Normalization filter skipped: {error.Message}");
+        }
+
+        try
+        {
+            var categories = ImmutableArray.Create(
+                SegmentCategory.Intro,
+                SegmentCategory.Sponsor,
+                SegmentCategory.SelfPromotion,
+                SegmentCategory.Outro,
+                SegmentCategory.Filler);
+
+            await player.UpdateSponsorBlockCategoriesAsync(categories, cancellationToken: cancellationToken);
+        }
+        catch (Exception error)
+        {
+            Console.WriteLine($"SponsorBlock setup skipped: {error.Message}");
+        }
     }
 
-    private static async Task ApplyFilters(CancellationToken cancellationToken, QueuedLavalinkPlayer player)
+    private async Task ShowAsync(SocketSlashCommand context, string content, Embed? embed = null)
     {
-        var normalizationFilter = new NormalizationFilter(0.5, true);
-        player.Filters.SetFilter(normalizationFilter);
-        await player.Filters.CommitAsync(cancellationToken);
-    }
+        await context.ModifyOriginalResponseAsync(properties =>
+        {
+            properties.Content = content;
+            if (embed is null)
+                properties.Embeds = Array.Empty<Embed>();
+            else
+                properties.Embed = embed;
+        });
 
-    private static async Task ConfigureSponsorBlock(CancellationToken cancellationToken, QueuedLavalinkPlayer player)
-    {
-        var categories = ImmutableArray.Create(
-            SegmentCategory.Intro,
-            SegmentCategory.Sponsor,
-            SegmentCategory.SelfPromotion,
-            SegmentCategory.Outro,
-            SegmentCategory.Filler);
+        if (context.GuildId is not ulong guildId)
+            return;
 
-        await player.UpdateSponsorBlockCategoriesAsync(categories, cancellationToken: cancellationToken);
+        var message = await context.GetOriginalResponseAsync();
+        _playbackNotifier.Track(guildId, message);
     }
 }

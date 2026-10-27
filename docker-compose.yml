@@ -1,7 +1,7 @@
 services:
   lavalink:
-    # pin the image version to Lavalink v4
-    image: ghcr.io/lavalink-devs/lavalink:4.0.8
+    # Lavalink 4.2+ is required for Discord DAVE (E2EE voice).
+    image: ghcr.io/lavalink-devs/lavalink:4.2.2
     container_name: lavalink
     restart: unless-stopped
     environment:
@@ -64,14 +64,18 @@ services:
     networks:
       - ollama-docker
 
+  # Optional message scheduler storage. Left out of a normal `docker compose up`.
+  # Start it with: docker compose --profile scheduler up -d
   mssql:
-    image: mcr.microsoft.com/mssql/server:2019-latest
-    container_name: mssql
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: lunaris-mssql
+    profiles: ["scheduler"]
     environment:
-      SA_PASSWORD: "SecretPassword!"
       ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "ChangeThisPassword1!"
     ports:
-        - "1433:1433"
+      - "1433:1433"
+    restart: unless-stopped
 
 volumes:
   ollama: {}

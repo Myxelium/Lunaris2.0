@@ -5,6 +5,8 @@ VisualStudioVersion = 17.9.34701.34
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lunaris2", "Bot/Lunaris2.csproj", "{3A16FD4C-EE50-4B05-9A75-0DDCD93AA615}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bot.Tests", "Bot.Tests/Bot.Tests.csproj", "{DDC6FB5F-1EAF-4344-B75D-BC6949068024}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{3A16FD4C-EE50-4B05-9A75-0DDCD93AA615}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3A16FD4C-EE50-4B05-9A75-0DDCD93AA615}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3A16FD4C-EE50-4B05-9A75-0DDCD93AA615}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DDC6FB5F-1EAF-4344-B75D-BC6949068024}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DDC6FB5F-1EAF-4344-B75D-BC6949068024}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DDC6FB5F-1EAF-4344-B75D-BC6949068024}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DDC6FB5F-1EAF-4344-B75D-BC6949068024}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
