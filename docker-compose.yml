@@ -64,6 +64,19 @@ services:
     networks:
       - ollama-docker
 
+  # Optional message scheduler storage. Left out of a normal `docker compose up`.
+  # Start it with: docker compose --profile scheduler up -d
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: lunaris-mssql
+    profiles: ["scheduler"]
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "ChangeThisPassword1!"
+    ports:
+      - "1433:1433"
+    restart: unless-stopped
+
 volumes:
   ollama: {}
 

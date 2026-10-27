@@ -1,12 +1,16 @@
 ﻿using System.Reflection;
 using Discord;
 using Discord.WebSocket;
-using Lunaris2.Handler.ChatCommand;
+using Hangfire;
 using Lavalink4NET.Extensions;
 using Lavalink4NET.Integrations.SponsorBlock.Extensions;
+using Lunaris2.Handler.ChatCommand;
 using Lunaris2.Handler.MusicPlayer;
+using Lunaris2.Handler.Scheduler;
 using Lunaris2.Notification;
+using Lunaris2.Registration;
 using Lunaris2.Service;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -22,13 +26,30 @@ public class Program
             Console.WriteLine(eventArgs.ExceptionObject);
         };
 
-        var app = CreateHostBuilder(args).Build();
+        var configuration = BuildConfiguration();
+        var schedulerSettings = configuration.GetSection("Scheduler").Get<SchedulerSettings>() ?? new SchedulerSettings();
+        var app = CreateHostBuilder(args, configuration, schedulerSettings).Build();
         app.UseSponsorBlock();
+
+        if (schedulerSettings.Enabled)
+            Console.WriteLine($"Scheduler enabled. Dashboard: {schedulerSettings.ListenUrl}{SchedulerSettings.DashboardPath}");
+
         app.Run();
     }
 
-    private static IHostBuilder CreateHostBuilder(string[] args) =>
-        Host.CreateDefaultBuilder(args)
+    private static IConfiguration BuildConfiguration() =>
+        new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: false)
+            .AddEnvironmentVariables()
+            .Build();
+
+    private static IHostBuilder CreateHostBuilder(
+        string[] args,
+        IConfiguration configuration,
+        SchedulerSettings schedulerSettings)
+    {
+        var builder = Host.CreateDefaultBuilder(args)
             .ConfigureServices((_, services) =>
             {
                 var socketConfig = new DiscordSocketConfig
@@ -38,10 +59,6 @@ public class Program
                 };
 
                 var client = new DiscordSocketClient(socketConfig);
-                var configuration = new ConfigurationBuilder()
-                    .SetBasePath(AppContext.BaseDirectory)
-                    .AddJsonFile("appsettings.json", optional: false)
-                    .Build();
 
                 services
                     .AddMediatR(mediatRServiceConfiguration => mediatRServiceConfiguration.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()))
@@ -67,7 +84,9 @@ public class Program
                     .AddSingleton(service => new Discord.Interactions.InteractionService(service.GetRequiredService<DiscordSocketClient>()))
                     .AddHostedService(service => service.GetRequiredService<VoiceChannelMonitorService>())
                     .AddHostedService<DiscordClientHostedService>()
-                    .Configure<ChatSettings>(configuration.GetSection("LLM"));
+                    .Configure<ChatSettings>(configuration.GetSection("LLM"))
+                    .Configure<SchedulerSettings>(configuration.GetSection("Scheduler"))
+                    .AddLunarisScheduler(schedulerSettings, prepareDatabase: schedulerSettings.Enabled);
 
                 client.Log += message =>
                 {
@@ -75,4 +94,22 @@ public class Program
                     return Task.CompletedTask;
                 };
             });
+
+        if (!schedulerSettings.Enabled)
+            return builder;
+
+        return builder.ConfigureWebHostDefaults(web =>
+        {
+            web.UseUrls(schedulerSettings.ListenUrl);
+            web.Configure(app =>
+            {
+                app.UseHangfireDashboard(SchedulerSettings.DashboardPath, new DashboardOptions
+                {
+                    DashboardTitle = "Lunaris Jobs",
+                    DarkModeEnabled = true,
+                    Authorization = [new Hangfire.Dashboard.LocalRequestsOnlyAuthorizationFilter()]
+                });
+            });
+        });
+    }
 }
