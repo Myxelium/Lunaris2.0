@@ -1,5 +1,6 @@
 using Discord.WebSocket;
 using Lavalink4NET;
+using Lavalink4NET.Players;
 using MediatR;
 
 namespace Lunaris2.Handler.MusicPlayer.SkipCommand;
@@ -11,7 +12,7 @@ public class SkipHandler(DiscordSocketClient client, IAudioService audioService)
     public async Task Handle(SkipCommand command, CancellationToken cancellationToken)
     {
         var context = command.Message;
-        var player = await audioService.GetPlayerAsync(client, context, connectToVoiceChannel: true);
+        var player = await audioService.GetPlayerOrNotifyAsync(client, context, PlayerChannelBehavior.None);
 
         if (player is null)
             return;
@@ -27,7 +28,7 @@ public class SkipHandler(DiscordSocketClient client, IAudioService audioService)
         var track = player.CurrentItem;
 
         if (track is not null)
-            await context.SendMessageAsync($"Skipped. Now playing: {track.Track!.Title}", client).ConfigureAwait(false);
+            await context.SendMessageAsync($"Skipped. Now playing: {track.Track?.Title ?? "the next track"}", client).ConfigureAwait(false);
         else
             await context.SendMessageAsync("Skipped. Stopped playing because the queue is now empty.", client).ConfigureAwait(false);
     }

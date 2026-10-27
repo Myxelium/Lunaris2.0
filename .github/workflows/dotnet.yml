@@ -4,6 +4,9 @@ on:
   push:
     branches: [ master ]
 
+permissions:
+  contents: write
+
 jobs:
   build:
 
@@ -11,10 +14,10 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0 # required for github-action-get-previous-tag
-        
+
     - name: Get previous tag
       id: previoustag
       uses: 'WyriHaximus/github-action-get-previous-tag@v1'
@@ -28,40 +31,32 @@ jobs:
         version: ${{ steps.previoustag.outputs.tag }}
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '8.0.x'
+        dotnet-version: '10.0.x'
 
     - name: Restore dependencies
-      run: dotnet restore ./Bot/Lunaris2.csproj
+      run: dotnet restore ./Lunaris2.sln
 
     - name: Build
-      run: dotnet build ./Bot/Lunaris2.csproj --no-restore -c Release /p:AssemblyVersion=${{ steps.previoustag.outputs.tag }} -o ./out
+      run: dotnet build ./Lunaris2.sln --no-restore -c Release /p:AssemblyVersion=${{ steps.previoustag.outputs.tag }}
+
+    - name: Test
+      run: dotnet test ./Lunaris2.sln --no-build -c Release --verbosity normal
 
     - name: Publish
       run: dotnet publish ./Bot/Lunaris2.csproj --configuration Release --output ./out
 
     - name: Zip the build
-      run: 7z a -tzip ./out/Lunaris.zip ./out/*
+      working-directory: ./out
+      run: zip -r ../Lunaris_${{ steps.semver.outputs.patch }}.zip .
 
     - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+      uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ steps.semver.outputs.patch }}
-        release_name: Release ${{ steps.semver.outputs.patch }}
+        name: Release ${{ steps.semver.outputs.patch }}
+        files: ./Lunaris_${{ steps.semver.outputs.patch }}.zip
+        fail_on_unmatched_files: true
         draft: false
         prerelease: false
-
-    - name: Upload Release Asset
-      id: upload-release-asset 
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./out/Lunaris.zip
-        asset_name: Lunaris_${{steps.semver.outputs.patch}}.zip
-        asset_content_type: application/zip

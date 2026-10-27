@@ -15,27 +15,43 @@ public class SlashCommandReceivedHandler(ISender mediator) : INotificationHandle
     public async Task Handle(SlashCommandReceivedNotification notification, CancellationToken cancellationToken)
     {
         await notification.Message.DeferAsync();
-        
-        switch (notification.Message.CommandName)
+
+        try
         {
-            case Command.Resume.Name:
-                await mediator.Send(new ResumeCommand(notification.Message), cancellationToken);
-                break;
-            case Command.Pause.Name:
-                await mediator.Send(new PauseCommand(notification.Message), cancellationToken);
-                break;
-            case Command.Disconnect.Name:
-                await mediator.Send(new DisconnectCommand(notification.Message), cancellationToken);
-                break;
-            case Command.Play.Name:
-                await mediator.Send(new PlayCommand(notification.Message), cancellationToken);
-                break;
-            case Command.Skip.Name:
-                await mediator.Send(new SkipCommand(notification.Message), cancellationToken);
-                break;
-            case Command.Clear.Name:
-                await mediator.Send(new ClearQueueCommand(notification.Message), cancellationToken);
-                break;
+            switch (notification.Message.CommandName)
+            {
+                case Command.Resume.Name:
+                    await mediator.Send(new ResumeCommand(notification.Message), cancellationToken);
+                    break;
+                case Command.Pause.Name:
+                    await mediator.Send(new PauseCommand(notification.Message), cancellationToken);
+                    break;
+                case Command.Disconnect.Name:
+                    await mediator.Send(new DisconnectCommand(notification.Message), cancellationToken);
+                    break;
+                case Command.Play.Name:
+                    await mediator.Send(new PlayCommand(notification.Message), cancellationToken);
+                    break;
+                case Command.Skip.Name:
+                    await mediator.Send(new SkipCommand(notification.Message), cancellationToken);
+                    break;
+                case Command.Clear.Name:
+                    await mediator.Send(new ClearQueueCommand(notification.Message), cancellationToken);
+                    break;
+            }
+        }
+        catch (Exception error)
+        {
+            Console.WriteLine(error);
+            try
+            {
+                await notification.Message.ModifyOriginalResponseAsync(properties =>
+                    properties.Content = "Something went wrong while running that command.");
+            }
+            catch (Exception respondError)
+            {
+                Console.WriteLine(respondError);
+            }
         }
     }
 }
