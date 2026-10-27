@@ -1,6 +1,5 @@
 ﻿using System.Reflection;
 using Discord;
-using Discord.Interactions;
 using Discord.WebSocket;
 using Lunaris2.Handler.ChatCommand;
 using Lavalink4NET.Extensions;
@@ -8,7 +7,6 @@ using Lavalink4NET.Integrations.SponsorBlock.Extensions;
 using Lunaris2.Handler.MusicPlayer;
 using Lunaris2.Notification;
 using Lunaris2.Service;
-using Lunaris2.SlashCommand;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -19,12 +17,12 @@ public class Program
 {
     public static void Main(string[] args)
     {
-        AppDomain.CurrentDomain.UnhandledException += (sender, eventArgs) =>
+        AppDomain.CurrentDomain.UnhandledException += (_, eventArgs) =>
         {
             Console.WriteLine(eventArgs.ExceptionObject);
         };
+
         var app = CreateHostBuilder(args).Build();
-        
         app.UseSponsorBlock();
         app.Run();
     }
@@ -33,15 +31,16 @@ public class Program
         Host.CreateDefaultBuilder(args)
             .ConfigureServices((_, services) =>
             {
-                var config = new DiscordSocketConfig
+                var socketConfig = new DiscordSocketConfig
                 {
-                    GatewayIntents = GatewayIntents.All
+                    GatewayIntents = GatewayIntents.All,
+                    LogLevel = LogSeverity.Info
                 };
-                
-                var client = new DiscordSocketClient(config);
+
+                var client = new DiscordSocketClient(socketConfig);
                 var configuration = new ConfigurationBuilder()
                     .SetBasePath(AppContext.BaseDirectory)
-                    .AddJsonFile("appsettings.json")
+                    .AddJsonFile("appsettings.json", optional: false)
                     .Build();
 
                 services
@@ -56,48 +55,24 @@ public class Program
                         options.Passphrase = configuration["LavaLinkPassword"] ?? "youshallnotpass";
                         options.Label = "Node";
                     })
-                    .AddSingleton<MusicEmbed>()
-                    .AddSingleton<ChatSettings>()
                     .AddSingleton(client)
-                    .AddSingleton<DiscordEventListener>()
+                    .AddSingleton(new DiscordSettings(configuration["Token"]))
+                    .AddSingleton<MusicEmbed>()
+                    .AddSingleton<PlaybackNotifier>()
+                    .AddSingleton<ChatSettings>()
+                    .AddSingleton<ChatSessionStore>()
+                    .AddSingleton<AloneLeaveScheduler>()
                     .AddSingleton<VoiceChannelMonitorService>()
-                    .AddSingleton(service => new InteractionService(service.GetRequiredService<DiscordSocketClient>()))
+                    .AddSingleton<DiscordEventListener>()
+                    .AddSingleton(service => new Discord.Interactions.InteractionService(service.GetRequiredService<DiscordSocketClient>()))
+                    .AddHostedService(service => service.GetRequiredService<VoiceChannelMonitorService>())
+                    .AddHostedService<DiscordClientHostedService>()
                     .Configure<ChatSettings>(configuration.GetSection("LLM"));
 
-                client.Ready += () => Client_Ready(client);
-                client.Log += Log;
-                
-                client
-                    .LoginAsync(TokenType.Bot, configuration["Token"])
-                    .GetAwaiter()
-                    .GetResult();
-                    
-                client
-                    .StartAsync()
-                    .GetAwaiter()
-                    .GetResult();
-
-                var listener = services
-                    .BuildServiceProvider()
-                    .GetRequiredService<DiscordEventListener>();
-                    
-                listener
-                    .StartAsync()
-                    .GetAwaiter()
-                    .GetResult();
+                client.Log += message =>
+                {
+                    Console.WriteLine(message);
+                    return Task.CompletedTask;
+                };
             });
-
-    private static Task Client_Ready(DiscordSocketClient client)
-    {
-        client.RegisterCommands();
-        
-        new VoiceChannelMonitorService(client).StartMonitoring();
-        return Task.CompletedTask;
-    }
-        
-    private static Task Log(LogMessage arg)
-    {
-        Console.WriteLine(arg);
-        return Task.CompletedTask;
-    }
 }

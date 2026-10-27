@@ -1,188 +1,250 @@
 using Discord;
 using Discord.WebSocket;
+using Lavalink4NET;
+using Lavalink4NET.Players;
+using Lavalink4NET.Players.Queued;
+using Microsoft.Extensions.Hosting;
 
-namespace Lunaris2.Service
+namespace Lunaris2.Service;
+
+public sealed class VoiceChannelMonitorService : IHostedService
 {
-    public class VoiceChannelMonitorService
+    public static readonly TimeSpan LeaveAfter = TimeSpan.FromMinutes(3);
+    public static readonly TimeSpan StatusInterval = TimeSpan.FromMinutes(1);
+
+    private readonly DiscordSocketClient _client;
+    private readonly IAudioService _audioService;
+    private readonly AloneLeaveScheduler _scheduler;
+    private readonly SemaphoreSlim _checkGate = new(1, 1);
+    private readonly CancellationTokenSource _stopping = new();
+    private Task? _loop;
+
+    public VoiceChannelMonitorService(
+        DiscordSocketClient client,
+        IAudioService audioService,
+        AloneLeaveScheduler scheduler)
     {
-        private readonly DiscordSocketClient _client;
-        // Track a cancellation source per voice channel when the bot is alone
-        private readonly Dictionary<ulong, CancellationTokenSource> _leaveCtsByChannel = new();
+        _client = client;
+        _audioService = audioService;
+        _scheduler = scheduler;
+    }
 
-        public VoiceChannelMonitorService(DiscordSocketClient client)
-        {
-            _client = client;
-            // Subscribe to voice state updates to react immediately
-            _client.UserVoiceStateUpdated += OnUserVoiceStateUpdated;
-        }
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        _client.UserVoiceStateUpdated += OnUserVoiceStateUpdated;
+        _client.Ready += OnReady;
+        _loop = Task.Run(() => MonitorAsync(_stopping.Token), CancellationToken.None);
+        return Task.CompletedTask;
+    }
 
-        public void StartMonitoring()
+    public async Task StopAsync(CancellationToken cancellationToken)
+    {
+        _client.UserVoiceStateUpdated -= OnUserVoiceStateUpdated;
+        _client.Ready -= OnReady;
+        await _stopping.CancelAsync();
+        _scheduler.CancelAll();
+
+        if (_loop is not null)
         {
-            Task.Run(async () =>
+            try
             {
-                while (true)
-                {
-                    await CheckVoiceChannels();
-                    await Task.Delay(TimeSpan.FromMinutes(1)); // Status refresh every minute
-                }
-            });
-        }
-
-        private async Task CheckVoiceChannels()
-        {
-            SetStatus();
-            await EnsureCurrentAloneStatesScheduled();
-        }
-        
-        private void SetStatus()
-        {
-            var channels = _client.Guilds
-                .SelectMany(guild => guild.VoiceChannels)
-                .Count(channel => 
-                    channel.ConnectedUsers
-                        .Any(guildUser => guildUser.Id == _client.CurrentUser.Id) && 
-                    channel.Users.Count > 1
-                );
-            
-            if (channels == 0)
-                _client.SetGameAsync(System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString(), type: ActivityType.CustomStatus);
-            else if(channels == 1)
-                _client.SetGameAsync("in 1 server", type: ActivityType.Playing);
-            else if(channels > 1)
-                _client.SetGameAsync($" in {channels} servers", type: ActivityType.Playing);
-        }
-
-        // Monitor existing alone states during the periodic check to ensure timers exist
-        private async Task EnsureCurrentAloneStatesScheduled()
-        {
-            foreach (var guild in _client.Guilds)
-            {
-                foreach (var voiceChannel in guild.VoiceChannels)
-                {
-                    var botInChannel = voiceChannel.ConnectedUsers.Any(u => u.Id == _client.CurrentUser.Id);
-                    var userCount = voiceChannel.ConnectedUsers.Count;
-
-                    if (botInChannel && userCount == 1)
-                    {
-                        // Schedule leave if not already scheduled
-                        if (!_leaveCtsByChannel.ContainsKey(voiceChannel.Id))
-                        {
-                            ScheduleLeave(voiceChannel);
-                        }
-                    }
-                    else
-                    {
-                        // Cancel if a schedule exists but the bot is not alone anymore
-                        if (_leaveCtsByChannel.TryGetValue(voiceChannel.Id, out var cts))
-                        {
-                            cts.Cancel();
-                            _leaveCtsByChannel.Remove(voiceChannel.Id);
-                        }
-                    }
-                }
+                await _loop.WaitAsync(cancellationToken);
             }
-
-            await Task.CompletedTask;
+            catch (OperationCanceledException)
+            {
+            }
         }
+    }
 
-        private Task OnUserVoiceStateUpdated(SocketUser user, SocketVoiceState before, SocketVoiceState after)
+    private Task OnReady()
+    {
+        _ = CheckVoiceChannelsAsync();
+        return Task.CompletedTask;
+    }
+
+    private async Task MonitorAsync(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
         {
-            // React only when events relate to the guild(s) and voice channels where the bot might be
-            var botId = _client.CurrentUser.Id;
+            await CheckVoiceChannelsAsync();
 
-            // Determine affected channels
-            var beforeChannelId = before.VoiceChannel?.Id;
-            var afterChannelId = after.VoiceChannel?.Id;
-
-            // If the bot itself moved, we should cancel any old schedule and possibly set a new one
-            if (user.Id == botId)
+            try
             {
-                if (beforeChannelId.HasValue && _leaveCtsByChannel.TryGetValue(beforeChannelId.Value, out var oldCts))
-                {
-                    oldCts.Cancel();
-                    _leaveCtsByChannel.Remove(beforeChannelId.Value);
-                }
-
-                if (afterChannelId.HasValue)
-                {
-                    var channel = after.VoiceChannel!;
-                    var isAlone = channel.ConnectedUsers.Count == 1 && channel.ConnectedUsers.Any(u => u.Id == botId);
-                    if (isAlone && !_leaveCtsByChannel.ContainsKey(channel.Id))
-                    {
-                        ScheduleLeave(channel);
-                    }
-                }
-
-                return Task.CompletedTask;
+                await Task.Delay(StatusInterval, cancellationToken);
             }
-
-            // For other users, if they join the bot's channel, cancel the leave; if they leave and bot becomes alone, schedule leave
-            if (afterChannelId.HasValue)
+            catch (OperationCanceledException)
             {
-                var channel = after.VoiceChannel!;
-                var botInChannel = channel.ConnectedUsers.Any(u => u.Id == botId);
-                var userCount = channel.ConnectedUsers.Count;
-
-                if (botInChannel && userCount > 1)
-                {
-                    // Cancel any pending leave
-                    if (_leaveCtsByChannel.TryGetValue(channel.Id, out var cts))
-                    {
-                        cts.Cancel();
-                        _leaveCtsByChannel.Remove(channel.Id);
-                    }
-                }
+                break;
             }
+        }
+    }
 
-            if (beforeChannelId.HasValue)
+    private async Task CheckVoiceChannelsAsync()
+    {
+        if (!await _checkGate.WaitAsync(0))
+            return;
+
+        try
+        {
+            if (_client.CurrentUser is null)
+                return;
+
+            await SetStatusAsync();
+            EnsureAloneStatesScheduled();
+        }
+        catch (Exception error)
+        {
+            Console.WriteLine(error);
+        }
+        finally
+        {
+            _checkGate.Release();
+        }
+    }
+
+    private async Task SetStatusAsync()
+    {
+        var botId = _client.CurrentUser.Id;
+        var channels = _client.Guilds
+            .SelectMany(guild => guild.VoiceChannels)
+            .Count(channel => IsPlayingForHumans(channel.ConnectedUsers, botId));
+
+        if (channels == 0)
+        {
+            var version = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString();
+            await _client.SetGameAsync(version, type: ActivityType.CustomStatus);
+        }
+        else if (channels == 1)
+        {
+            await _client.SetGameAsync("in 1 server", type: ActivityType.Playing);
+        }
+        else
+        {
+            await _client.SetGameAsync($"in {channels} servers", type: ActivityType.Playing);
+        }
+    }
+
+    private void EnsureAloneStatesScheduled()
+    {
+        var botId = _client.CurrentUser.Id;
+        foreach (var guild in _client.Guilds)
+        {
+            foreach (var voiceChannel in guild.VoiceChannels)
             {
-                var channel = before.VoiceChannel!; // user left this channel
-                var botInChannel = channel.ConnectedUsers.Any(u => u.Id == botId);
-                var userCount = channel.ConnectedUsers.Count;
-
-                if (botInChannel && userCount == 1)
-                {
-                    // Bot became alone, schedule leave
-                    if (!_leaveCtsByChannel.ContainsKey(channel.Id))
-                    {
-                        ScheduleLeave(channel);
-                    }
-                }
+                if (ShouldLeave(voiceChannel.ConnectedUsers, botId))
+                    ScheduleLeave(voiceChannel);
+                else
+                    _scheduler.Cancel(voiceChannel.Id);
             }
+        }
+    }
 
+    private Task OnUserVoiceStateUpdated(SocketUser user, SocketVoiceState before, SocketVoiceState after)
+    {
+        if (_client.CurrentUser is null)
             return Task.CompletedTask;
-        }
 
-        private void ScheduleLeave(SocketVoiceChannel voiceChannel)
+        var botId = _client.CurrentUser.Id;
+        UpdateChannel(before.VoiceChannel, botId);
+        if (after.VoiceChannel?.Id != before.VoiceChannel?.Id)
+            UpdateChannel(after.VoiceChannel, botId);
+
+        return Task.CompletedTask;
+    }
+
+    private void UpdateChannel(SocketVoiceChannel? channel, ulong botId)
+    {
+        if (channel is null)
+            return;
+
+        if (ShouldLeave(channel.ConnectedUsers, botId))
+            ScheduleLeave(channel);
+        else
+            _scheduler.Cancel(channel.Id);
+    }
+
+    private void ScheduleLeave(SocketVoiceChannel voiceChannel)
+    {
+        if (!_scheduler.TrySchedule(voiceChannel.Id, out var schedule) || schedule is null)
+            return;
+
+        var guildId = voiceChannel.Guild.Id;
+        var channelId = voiceChannel.Id;
+
+        _ = Task.Run(async () =>
         {
-            var cts = new CancellationTokenSource();
-            _leaveCtsByChannel[voiceChannel.Id] = cts;
-
-            _ = Task.Run(async () =>
+            try
             {
-                try
-                {
-                    await Task.Delay(TimeSpan.FromMinutes(3), cts.Token);
+                await Task.Delay(LeaveAfter, schedule.Token);
 
-                    // After delay, verify still alone
-                    var botId = _client.CurrentUser.Id;
-                    var isStillAlone = voiceChannel.ConnectedUsers.Count == 1 && voiceChannel.ConnectedUsers.Any(u => u.Id == botId);
-                    if (isStillAlone)
-                    {
-                        Console.WriteLine($"Leaving channel {voiceChannel.Name} due to inactivity...");
-                        await voiceChannel.DisconnectAsync();
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    // Cancelled because someone joined or bot moved
-                }
-                finally
-                {
-                    _leaveCtsByChannel.Remove(voiceChannel.Id);
-                    cts.Dispose();
-                }
-            });
+                var channel = _client.GetGuild(guildId)?.GetVoiceChannel(channelId);
+                var botId = _client.CurrentUser?.Id;
+                if (channel is null || botId is null || !ShouldLeave(channel.ConnectedUsers, botId.Value))
+                    return;
+
+                Console.WriteLine($"Leaving {channel.Name} because nobody is listening.");
+                await LeaveAsync(guildId, channel);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception error)
+            {
+                Console.WriteLine(error);
+            }
+            finally
+            {
+                _scheduler.CompleteIfCurrent(channelId, schedule);
+            }
+        });
+    }
+
+    private async Task LeaveAsync(ulong guildId, SocketVoiceChannel channel)
+    {
+        QueuedLavalinkPlayer? player = null;
+        try
+        {
+            player = await _audioService.Players.GetPlayerAsync<QueuedLavalinkPlayer>(guildId);
         }
+        catch (Exception error)
+        {
+            Console.WriteLine($"Lavalink player lookup failed: {error.Message}");
+        }
+
+        var current = _client.GetGuild(guildId)?.GetVoiceChannel(channel.Id) ?? channel;
+        var botId = _client.CurrentUser?.Id;
+        if (botId is null || !ShouldLeave(current.ConnectedUsers, botId.Value))
+            return;
+
+        if (player is not null)
+        {
+            try
+            {
+                await player.DisconnectAsync();
+                return;
+            }
+            catch (Exception error)
+            {
+                Console.WriteLine($"Lavalink disconnect failed: {error.Message}");
+            }
+        }
+
+        try
+        {
+            await current.DisconnectAsync();
+        }
+        catch (Exception error)
+        {
+            Console.WriteLine($"Discord disconnect failed: {error.Message}");
+        }
+    }
+
+    private static bool ShouldLeave(IEnumerable<SocketGuildUser> users, ulong botId)
+        => VoicePresence.ShouldLeave(users.Select(user => new VoiceMember(user.Id, user.IsBot)), botId);
+
+    private static bool IsPlayingForHumans(IEnumerable<SocketGuildUser> users, ulong botId)
+    {
+        var members = users.Select(user => new VoiceMember(user.Id, user.IsBot)).ToArray();
+        return members.Any(member => member.Id == botId) && !VoicePresence.ShouldLeave(members, botId);
     }
 }

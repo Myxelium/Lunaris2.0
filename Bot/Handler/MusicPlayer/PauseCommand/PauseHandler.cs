@@ -12,16 +12,15 @@ public class PauseHandler(DiscordSocketClient client, IAudioService audioService
     public async Task Handle(PauseCommand command, CancellationToken cancellationToken)
     {
         var context = command.Message;
-        var player = await audioService.GetPlayerAsync(client, context, connectToVoiceChannel: true);
+        var player = await audioService.GetPlayerOrNotifyAsync(client, context, PlayerChannelBehavior.None);
 
         if (player is null)
-        {
             return;
-        }
 
-        if (player.State is PlayerState.Paused)
+        if (player.State is not PlayerState.Playing)
         {
-            await context.SendMessageAsync("Player is already paused.", client);
+            var message = player.State is PlayerState.Paused ? "Player is already paused." : "Nothing playing!";
+            await context.SendMessageAsync(message, client);
             return;
         }
 

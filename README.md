@@ -2,7 +2,9 @@
 
 # Lunaris - Discord BOT
 
-Lunaris2 is a Discord bot designed to play music in your server's voice channels. It's built using C# and the Discord.Net library, and it uses the LavaLink music client for audio streaming.
+Lunaris2 is a Discord bot designed to play music in your server's voice channels. It's built using C# and .NET 10 with Discord.Net, and it uses Lavalink 4.2 for audio streaming.
+
+Discord voice now uses DAVE (end-to-end encryption). Playback needs Lavalink 4.2.2 or newer and Lavalink4NET 4.2.2, which sends the voice channel id Lavalink uses to complete the DAVE handshake. An older Lavalink node cannot join voice.
 
 ## 🎮Features
 
@@ -31,15 +33,15 @@ The LLM is run using Ollama see more about Ollama [here](https://ollama.com/). R
 - Install PM2 and configure it following their setup guide
   
 #### 🐦‍🔥 Lavalink
-* Download Lavalink 4.X.X (.jar)
-* Install Java 17
+* Download Lavalink 4.2.2 or newer (.jar). 4.2 is the first release with DAVE support.
+* Install Java 17 or newer (Java 21 is fine)
 
 If using Linux run following command to start Lavalink with PM2:
-``pm2 start "sudo java -Xmx1G -jar Lavalink.jar" --name Lavalink4.0.7``
+``pm2 start "java -Xmx1G -jar Lavalink.jar" --name Lavalink``
 
 For me I have Lavalink.jar downloaded in ``/opt`` folder from Linux root. By running Lavalink using PM2, you can monitor it and manage it from a page in your browser instead of having to access the server terminal.
 #### Lunaris
-* Install dotnet
+* Install the .NET 10 SDK
 
 Register the Lunaris bot with PM2:
 ``pm2 start "dotnet Lunaris2.dll"``
